@@ -15,8 +15,7 @@ const COMMON_WORDS = [
   // beats a longer list with fake or unfamiliar entries mixed in.
   'dad', 'had', 'sad', 'add', 'ask', 'all', 'fall', 'gas', 'has', 'half',
   'flag', 'glad', 'salad', 'flask', 'gash', 'lash', 'dash', 'sash', 'hall',
-  'halls', 'ash', 'hash', 'gala', 'salsa', 'glass', 'lad', 'fad', 'fads',
-  'sag', 'gag', 'lag',
+  'halls', 'ash', 'hash', 'gala', 'salsa', 'glass', 'lad', 'sag', 'gag', 'lag',
 
   // Very common short words (2-4 letters)
   'the', 'a', 'i', 'it', 'is', 'at', 'if', 'of', 'do', 'go', 'to', 'so',

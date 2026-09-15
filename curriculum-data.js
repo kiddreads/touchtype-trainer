@@ -29,26 +29,6 @@ const LEVELS = [
           "ash",
           "ask",
           "dad",
-          "fad",
-          "gag",
-          "gas",
-          "had",
-          "has",
-          "lad",
-          "lag",
-          "sad"
-        ]
-      },
-      {
-        "id": 2,
-        "title": "Home Row 2",
-        "words": [
-          "add",
-          "all",
-          "ash",
-          "ask",
-          "dad",
-          "fad",
           "gag",
           "gas",
           "had",
@@ -60,14 +40,34 @@ const LEVELS = [
         ]
       },
       {
-        "id": 3,
-        "title": "Home Row 3",
+        "id": 2,
+        "title": "Home Row 2",
         "words": [
+          "add",
           "all",
           "ash",
           "ask",
           "dad",
-          "fad",
+          "gag",
+          "gas",
+          "had",
+          "has",
+          "lad",
+          "lag",
+          "sad",
+          "sag",
+          "dash"
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Home Row 3",
+        "words": [
+          "add",
+          "all",
+          "ash",
+          "ask",
+          "dad",
           "gag",
           "gas",
           "had",
@@ -87,7 +87,6 @@ const LEVELS = [
           "ash",
           "ask",
           "dad",
-          "fad",
           "gag",
           "gas",
           "had",
@@ -96,7 +95,8 @@ const LEVELS = [
           "lag",
           "sad",
           "sag",
-          "dash"
+          "dash",
+          "fall"
         ]
       },
       {
@@ -106,7 +106,6 @@ const LEVELS = [
           "ash",
           "ask",
           "dad",
-          "fad",
           "gag",
           "gas",
           "had",
@@ -116,7 +115,8 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads"
+          "fall",
+          "flag"
         ]
       },
       {
@@ -125,7 +125,6 @@ const LEVELS = [
         "words": [
           "ask",
           "dad",
-          "fad",
           "gag",
           "gas",
           "had",
@@ -135,16 +134,17 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads",
-          "fall"
+          "fall",
+          "flag",
+          "gala"
         ]
       },
       {
         "id": 7,
         "title": "Home Row 7",
         "words": [
+          "ask",
           "dad",
-          "fad",
           "gag",
           "gas",
           "had",
@@ -154,16 +154,16 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads",
           "fall",
-          "flag"
+          "flag",
+          "gala"
         ]
       },
       {
         "id": 8,
         "title": "Home Row 8",
         "words": [
-          "fad",
+          "dad",
           "gag",
           "gas",
           "had",
@@ -173,10 +173,10 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads",
           "fall",
           "flag",
-          "gala"
+          "gala",
+          "gash"
         ]
       },
       {
@@ -192,18 +192,17 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads",
           "fall",
           "flag",
           "gala",
-          "gash"
+          "gash",
+          "glad"
         ]
       },
       {
         "id": 10,
         "title": "Home Row 10",
         "words": [
-          "gag",
           "gas",
           "had",
           "has",
@@ -212,11 +211,12 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads",
           "fall",
           "flag",
           "gala",
-          "gash"
+          "gash",
+          "glad",
+          "half"
         ]
       },
       {
@@ -231,12 +231,12 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads",
           "fall",
           "flag",
           "gala",
           "gash",
-          "glad"
+          "glad",
+          "half"
         ]
       },
       {
@@ -250,13 +250,13 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads",
           "fall",
           "flag",
           "gala",
           "gash",
           "glad",
-          "half"
+          "half",
+          "hall"
         ]
       },
       {
@@ -269,26 +269,6 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads",
-          "fall",
-          "flag",
-          "gala",
-          "gash",
-          "glad",
-          "half",
-          "hall"
-        ]
-      },
-      {
-        "id": 14,
-        "title": "Home Row 14",
-        "words": [
-          "lad",
-          "lag",
-          "sad",
-          "sag",
-          "dash",
-          "fads",
           "fall",
           "flag",
           "gala",
@@ -300,14 +280,34 @@ const LEVELS = [
         ]
       },
       {
-        "id": 15,
-        "title": "Home Row 15",
+        "id": 14,
+        "title": "Home Row 14",
         "words": [
+          "lad",
           "lag",
           "sad",
           "sag",
           "dash",
-          "fads",
+          "fall",
+          "flag",
+          "gala",
+          "gash",
+          "glad",
+          "half",
+          "hall",
+          "hash",
+          "lash"
+        ]
+      },
+      {
+        "id": 15,
+        "title": "Home Row 15",
+        "words": [
+          "lad",
+          "lag",
+          "sad",
+          "sag",
+          "dash",
           "fall",
           "flag",
           "gala",
@@ -327,26 +327,6 @@ const LEVELS = [
           "sad",
           "sag",
           "dash",
-          "fads",
-          "fall",
-          "flag",
-          "gala",
-          "gash",
-          "glad",
-          "half",
-          "hall",
-          "hash",
-          "lash"
-        ]
-      },
-      {
-        "id": 17,
-        "title": "Home Row 17",
-        "words": [
-          "sad",
-          "sag",
-          "dash",
-          "fads",
           "fall",
           "flag",
           "gala",
@@ -360,12 +340,12 @@ const LEVELS = [
         ]
       },
       {
-        "id": 18,
-        "title": "Home Row 18",
+        "id": 17,
+        "title": "Home Row 17",
         "words": [
+          "sad",
           "sag",
           "dash",
-          "fads",
           "fall",
           "flag",
           "gala",
@@ -380,11 +360,31 @@ const LEVELS = [
         ]
       },
       {
+        "id": 18,
+        "title": "Home Row 18",
+        "words": [
+          "sag",
+          "dash",
+          "fall",
+          "flag",
+          "gala",
+          "gash",
+          "glad",
+          "half",
+          "hall",
+          "hash",
+          "lash",
+          "sash",
+          "flash",
+          "flask"
+        ]
+      },
+      {
         "id": 19,
         "title": "Home Row 19",
         "words": [
+          "sag",
           "dash",
-          "fads",
           "fall",
           "flag",
           "gala",
@@ -403,7 +403,7 @@ const LEVELS = [
         "id": 20,
         "title": "Home Row 20",
         "words": [
-          "fads",
+          "dash",
           "fall",
           "flag",
           "gala",
@@ -443,7 +443,6 @@ const LEVELS = [
         "id": 22,
         "title": "Home Row 22",
         "words": [
-          "fall",
           "flag",
           "gala",
           "gash",
@@ -456,7 +455,8 @@ const LEVELS = [
           "flash",
           "flask",
           "glass",
-          "halls"
+          "halls",
+          "salad"
         ]
       },
       {
@@ -559,7 +559,7 @@ const LEVELS = [
           "dad",
           "day",
           "dog",
-          "fad"
+          "gag"
         ]
       },
       {
@@ -574,22 +574,6 @@ const LEVELS = [
           "dad",
           "day",
           "dog",
-          "fad",
-          "gag",
-          "gas",
-          "had",
-          "has",
-          "lad",
-          "lag",
-          "lay"
-        ]
-      },
-      {
-        "id": 4,
-        "title": "Top Row 4",
-        "words": [
-          "dog",
-          "fad",
           "gag",
           "gas",
           "had",
@@ -597,19 +581,19 @@ const LEVELS = [
           "lad",
           "lag",
           "lay",
-          "out",
-          "pay",
-          "ray",
-          "sad",
-          "sag",
-          "say",
-          "sea"
+          "out"
         ]
       },
       {
-        "id": 5,
-        "title": "Top Row 5",
+        "id": 4,
+        "title": "Top Row 4",
         "words": [
+          "dog",
+          "gag",
+          "gas",
+          "had",
+          "has",
+          "lad",
           "lag",
           "lay",
           "out",
@@ -619,19 +603,19 @@ const LEVELS = [
           "sag",
           "say",
           "sea",
-          "she",
-          "sky",
-          "the",
-          "way",
-          "you",
-          "dash",
-          "deer"
+          "she"
         ]
       },
       {
-        "id": 6,
-        "title": "Top Row 6",
+        "id": 5,
+        "title": "Top Row 5",
         "words": [
+          "lay",
+          "out",
+          "pay",
+          "ray",
+          "sad",
+          "sag",
           "say",
           "sea",
           "she",
@@ -641,13 +625,29 @@ const LEVELS = [
           "you",
           "dash",
           "deer",
+          "dish"
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Top Row 6",
+        "words": [
+          "sea",
+          "she",
+          "sky",
+          "the",
+          "way",
+          "you",
+          "dash",
+          "deer",
           "dish",
-          "fads",
           "fall",
           "fish",
           "flag",
           "food",
-          "foot"
+          "foot",
+          "gala",
+          "gash"
         ]
       },
       {
@@ -656,7 +656,6 @@ const LEVELS = [
         "words": [
           "deer",
           "dish",
-          "fads",
           "fall",
           "fish",
           "flag",
@@ -669,14 +668,14 @@ const LEVELS = [
           "goat",
           "good",
           "gray",
-          "half"
+          "half",
+          "hall"
         ]
       },
       {
         "id": 8,
         "title": "Top Row 8",
         "words": [
-          "foot",
           "gala",
           "gash",
           "girl",
@@ -691,14 +690,14 @@ const LEVELS = [
           "lash",
           "like",
           "look",
-          "play"
+          "play",
+          "pool"
         ]
       },
       {
         "id": 9,
         "title": "Top Row 9",
         "words": [
-          "gray",
           "half",
           "hall",
           "hash",
@@ -713,14 +712,14 @@ const LEVELS = [
           "star",
           "stay",
           "take",
-          "talk"
+          "talk",
+          "that"
         ]
       },
       {
         "id": 10,
         "title": "Top Row 10",
         "words": [
-          "look",
           "play",
           "pool",
           "push",
@@ -735,14 +734,14 @@ const LEVELS = [
           "took",
           "tool",
           "tree",
-          "wait"
+          "wait",
+          "wake"
         ]
       },
       {
         "id": 11,
         "title": "Top Row 11",
         "words": [
-          "take",
           "talk",
           "that",
           "they",
@@ -757,14 +756,14 @@ const LEVELS = [
           "wolf",
           "wood",
           "apple",
-          "fight"
+          "fight",
+          "flash"
         ]
       },
       {
         "id": 12,
         "title": "Top Row 12",
         "words": [
-          "tree",
           "wait",
           "wake",
           "walk",
@@ -779,14 +778,14 @@ const LEVELS = [
           "glass",
           "grape",
           "graph",
-          "great"
+          "great",
+          "halls"
         ]
       },
       {
         "id": 13,
         "title": "Top Row 13",
         "words": [
-          "apple",
           "fight",
           "flash",
           "flask",
@@ -801,14 +800,14 @@ const LEVELS = [
           "house",
           "jolly",
           "light",
-          "photo"
+          "photo",
+          "pilot"
         ]
       },
       {
         "id": 14,
         "title": "Top Row 14",
         "words": [
-          "graph",
           "great",
           "halls",
           "happy",
@@ -823,14 +822,14 @@ const LEVELS = [
           "quilt",
           "right",
           "salad",
-          "salsa"
+          "salsa",
+          "shape"
         ]
       },
       {
         "id": 15,
         "title": "Top Row 15",
         "words": [
-          "light",
           "photo",
           "pilot",
           "proud",
@@ -845,14 +844,14 @@ const LEVELS = [
           "sheep",
           "shirt",
           "shore",
-          "short"
+          "short",
+          "shout"
         ]
       },
       {
         "id": 16,
         "title": "Top Row 16",
         "words": [
-          "salad",
           "salsa",
           "shape",
           "share",
@@ -867,14 +866,14 @@ const LEVELS = [
           "speak",
           "story",
           "study",
-          "sweet"
+          "sweet",
+          "these"
         ]
       },
       {
         "id": 17,
         "title": "Top Row 17",
         "words": [
-          "shore",
           "short",
           "shout",
           "silly",
@@ -889,14 +888,14 @@ const LEVELS = [
           "throw",
           "tiger",
           "tight",
-          "today"
+          "today",
+          "trade"
         ]
       },
       {
         "id": 18,
         "title": "Top Row 18",
         "words": [
-          "study",
           "sweet",
           "these",
           "those",
@@ -911,7 +910,8 @@ const LEVELS = [
           "wheel",
           "where",
           "while",
-          "white"
+          "white",
+          "world"
         ]
       },
       {
@@ -1098,7 +1098,6 @@ const LEVELS = [
           "dad",
           "day",
           "dog",
-          "fad",
           "fox",
           "gag",
           "gas",
@@ -1110,14 +1109,14 @@ const LEVELS = [
           "man",
           "may",
           "out",
-          "pay"
+          "pay",
+          "ran"
         ]
       },
       {
         "id": 3,
         "title": "Bottom Row 3",
         "words": [
-          "sag",
           "say",
           "sea",
           "she",
@@ -1134,18 +1133,17 @@ const LEVELS = [
           "cake",
           "came",
           "city",
-          "come"
+          "come",
+          "cook"
         ]
       },
       {
         "id": 4,
         "title": "Bottom Row 4",
         "words": [
-          "deer",
           "dish",
           "each",
           "exam",
-          "fads",
           "fall",
           "fish",
           "flag",
@@ -1158,14 +1156,15 @@ const LEVELS = [
           "glad",
           "goat",
           "good",
-          "gray"
+          "gray",
+          "half",
+          "hall"
         ]
       },
       {
         "id": 5,
         "title": "Bottom Row 5",
         "words": [
-          "jump",
           "king",
           "lake",
           "lash",
@@ -1182,15 +1181,14 @@ const LEVELS = [
           "pool",
           "push",
           "quiz",
-          "rain"
+          "rain",
+          "ring"
         ]
       },
       {
         "id": 6,
         "title": "Bottom Row 6",
         "words": [
-          "sash",
-          "sing",
           "some",
           "star",
           "stay",
@@ -1206,15 +1204,15 @@ const LEVELS = [
           "tool",
           "tree",
           "vibe",
-          "wait"
+          "wait",
+          "wake",
+          "walk"
         ]
       },
       {
         "id": 7,
         "title": "Bottom Row 7",
         "words": [
-          "wing",
-          "wish",
           "wolf",
           "wood",
           "about",
@@ -1230,14 +1228,15 @@ const LEVELS = [
           "cabin",
           "chain",
           "chair",
-          "chase"
+          "chase",
+          "cheer",
+          "child"
         ]
       },
       {
         "id": 8,
         "title": "Bottom Row 8",
         "words": [
-          "comet",
           "comic",
           "count",
           "crash",
@@ -1254,14 +1253,14 @@ const LEVELS = [
           "funny",
           "glass",
           "grape",
-          "graph"
+          "graph",
+          "great"
         ]
       },
       {
         "id": 9,
         "title": "Bottom Row 9",
         "words": [
-          "happy",
           "horse",
           "house",
           "jolly",
@@ -1278,14 +1277,14 @@ const LEVELS = [
           "never",
           "nurse",
           "ocean",
-          "onion"
+          "onion",
+          "paint"
         ]
       },
       {
         "id": 10,
         "title": "Bottom Row 10",
         "words": [
-          "pilot",
           "pound",
           "proud",
           "punch",
@@ -1302,14 +1301,14 @@ const LEVELS = [
           "salad",
           "salsa",
           "shape",
-          "share"
+          "share",
+          "shark"
         ]
       },
       {
         "id": 11,
         "title": "Bottom Row 11",
         "words": [
-          "shirt",
           "shore",
           "short",
           "shout",
@@ -1326,14 +1325,14 @@ const LEVELS = [
           "teach",
           "thank",
           "these",
-          "thing"
+          "thing",
+          "think"
         ]
       },
       {
         "id": 12,
         "title": "Bottom Row 12",
         "words": [
-          "throw",
           "tiger",
           "tight",
           "today",
@@ -1350,14 +1349,14 @@ const LEVELS = [
           "young",
           "zebra",
           "anchor",
-          "autumn"
+          "autumn",
+          "banana"
         ]
       },
       {
         "id": 13,
         "title": "Bottom Row 13",
         "words": [
-          "bottle",
           "branch",
           "breezy",
           "bridge",
@@ -1374,14 +1373,14 @@ const LEVELS = [
           "cloudy",
           "dancer",
           "desert",
-          "desire"
+          "desire",
+          "doctor"
         ]
       },
       {
         "id": 14,
         "title": "Bottom Row 14",
         "words": [
-          "energy",
           "engine",
           "family",
           "farmer",
@@ -1398,14 +1397,14 @@ const LEVELS = [
           "harbor",
           "island",
           "jungle",
-          "ladder"
+          "ladder",
+          "legend"
         ]
       },
       {
         "id": 15,
         "title": "Bottom Row 15",
         "words": [
-          "lizard",
           "market",
           "meadow",
           "melody",
@@ -1422,14 +1421,14 @@ const LEVELS = [
           "planet",
           "potato",
           "rabbit",
-          "reason"
+          "reason",
+          "rhythm"
         ]
       },
       {
         "id": 16,
         "title": "Bottom Row 16",
         "words": [
-          "season",
           "shadow",
           "singer",
           "sneeze",
@@ -1446,14 +1445,14 @@ const LEVELS = [
           "tunnel",
           "turkey",
           "turtle",
-          "vacuum"
+          "vacuum",
+          "valley"
         ]
       },
       {
         "id": 17,
         "title": "Bottom Row 17",
         "words": [
-          "winter",
           "wisdom",
           "writer",
           "airport",
@@ -1470,7 +1469,8 @@ const LEVELS = [
           "company",
           "compass",
           "costume",
-          "country"
+          "country",
+          "courage"
         ]
       },
       {
@@ -1525,7 +1525,6 @@ const LEVELS = [
         "id": 20,
         "title": "Bottom Row 20",
         "words": [
-          "through",
           "thunder",
           "tractor",
           "village",
@@ -1542,7 +1541,8 @@ const LEVELS = [
           "dinosaur",
           "elephant",
           "engineer",
-          "exciting"
+          "exciting",
+          "explorer"
         ]
       },
       {
@@ -2248,7 +2248,6 @@ const LEVELS = [
         "id": 3,
         "title": "Capitals & End Punctuation 3",
         "words": [
-          "sea",
           "she",
           "sky",
           "sun",
@@ -2265,7 +2264,8 @@ const LEVELS = [
           "city",
           "come",
           "cook",
-          "cool"
+          "cool",
+          "dash"
         ]
       },
       {
@@ -2290,8 +2290,6 @@ const LEVELS = [
         "id": 5,
         "title": "Capitals & End Punctuation 5",
         "words": [
-          "lash",
-          "like",
           "lion",
           "look",
           "make",
@@ -2307,7 +2305,9 @@ const LEVELS = [
           "rain",
           "ring",
           "room",
-          "same"
+          "same",
+          "sash",
+          "sing"
         ]
       },
       {
@@ -2332,8 +2332,6 @@ const LEVELS = [
         "id": 7,
         "title": "Capitals & End Punctuation 7",
         "words": [
-          "beach",
-          "blink",
           "brain",
           "bread",
           "break",
@@ -2349,7 +2347,9 @@ const LEVELS = [
           "clean",
           "cloud",
           "comet",
-          "comic"
+          "comic",
+          "count",
+          "crash"
         ]
       },
       {
@@ -2374,7 +2374,6 @@ const LEVELS = [
         "id": 9,
         "title": "Capitals & End Punctuation 9",
         "words": [
-          "magic",
           "mixed",
           "moose",
           "mouse",
@@ -2391,7 +2390,8 @@ const LEVELS = [
           "pilot",
           "pound",
           "proud",
-          "punch"
+          "punch",
+          "queen"
         ]
       },
       {
@@ -2416,7 +2416,6 @@ const LEVELS = [
         "id": 11,
         "title": "Capitals & End Punctuation 11",
         "words": [
-          "story",
           "study",
           "sunny",
           "sweet",
@@ -2433,7 +2432,8 @@ const LEVELS = [
           "today",
           "trade",
           "trail",
-          "train"
+          "train",
+          "whale"
         ]
       },
       {
@@ -2458,7 +2458,6 @@ const LEVELS = [
         "id": 13,
         "title": "Capitals & End Punctuation 13",
         "words": [
-          "chilly",
           "choose",
           "church",
           "cloudy",
@@ -2475,7 +2474,8 @@ const LEVELS = [
           "flower",
           "forest",
           "freeze",
-          "friend"
+          "friend",
+          "galaxy"
         ]
       },
       {
@@ -2500,7 +2500,6 @@ const LEVELS = [
         "id": 15,
         "title": "Capitals & End Punctuation 15",
         "words": [
-          "planet",
           "potato",
           "rabbit",
           "reason",
@@ -2517,7 +2516,8 @@ const LEVELS = [
           "spring",
           "square",
           "stormy",
-          "street"
+          "street",
+          "summer"
         ]
       },
       {
