@@ -46,9 +46,13 @@ open-source web app.
 - **Fair, completion-based scoring** — accuracy is *clean words ÷ words
   attempted*, not a raw keystroke ratio, so getting stuck on one letter and
   pressing the wrong key several times before noticing only costs you that
-  one word, not five separate strikes against you. You advance to the next
-  word/sentence by pressing **Enter**, not automatically and not on Space
-  (many items contain real spaces), so mistakes don't get swept past unseen.
+  one word, not five separate strikes against you. It does not auto-advance
+  to the next word/sentence — a fast typist's reflex tap of Space or Enter
+  right after finishing a word would otherwise register as a wrong
+  keystroke against whatever came next. You advance explicitly with
+  **Enter or Space** once a word is complete (Space is only accepted here,
+  after the word is done — mid-word it's still a normal character, since
+  many items contain real spaces).
 - **Stats are always recorded, display is optional** — WPM, accuracy, and
   full session history are saved to `localStorage` every time regardless of
   the "Live Stats" toggle; the toggle only hides the on-screen numbers while

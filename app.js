@@ -340,8 +340,8 @@ function completeWord() {
   state.awaitingAdvance = true;
   const hint = document.getElementById('advanceHint');
   hint.textContent = retiredAfterMisses
-    ? "Moving on — you'll see this one again next session. Press Enter ↵ to continue."
-    : 'Press Enter ↵ to continue.';
+    ? "Moving on — you'll see this one again next session. Press Enter ↵ or Space to continue."
+    : 'Press Enter ↵ or Space to continue.';
   hint.hidden = false;
 }
 
@@ -470,8 +470,12 @@ function handleKeydown(e) {
   if (e.key === 'Shift' || e.key === 'Tab') return;
 
   if (state.awaitingAdvance) {
+    // Once a word/sentence is complete there's nothing left to type, so
+    // Space is no longer ambiguous with "part of the word" here — accept
+    // it alongside Enter, since plenty of fast typists reflexively hit
+    // Space between words out of habit.
     e.preventDefault();
-    if (e.key === 'Enter') nextWord();
+    if (e.key === 'Enter' || e.key === ' ') nextWord();
     return;
   }
   if (e.key === 'Enter') { e.preventDefault(); return; }
