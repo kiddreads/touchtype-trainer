@@ -236,8 +236,9 @@ main {
 
 .keyboard-wrap {
   position: relative;
+  display: block;
+  width: fit-content;
   margin: 0 auto 16px;
-  display: inline-block;
 }
 
 .hands {
