@@ -184,7 +184,6 @@ main {
 
 .advance-hint {
   margin-top: 14px;
-  display: inline-block;
   color: #fff;
   background: var(--accent);
   font-size: 1.05rem;
@@ -192,6 +191,14 @@ main {
   padding: 8px 18px;
   border-radius: 999px;
   animation: advance-pulse 1.1s ease-in-out infinite;
+}
+/* Setting display: inline-block unconditionally on the class would beat
+   the browser's default `[hidden] { display: none }` rule (author CSS
+   wins over the UA stylesheet at equal specificity), so the hint would
+   stay visible even with the hidden attribute set — exactly the bug
+   reported. Only apply it once the element is actually shown. */
+.advance-hint:not([hidden]) {
+  display: inline-block;
 }
 
 @keyframes advance-pulse {
