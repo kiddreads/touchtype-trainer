@@ -87,13 +87,18 @@ function populateVoices() {
 }
 
 function speak(text) {
-  if (!('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = settings.rate;
-  const voice = speechSynthesis.getVoices().find(v => v.voiceURI === settings.voiceURI);
-  if (voice) utter.voice = voice;
-  speechSynthesis.speak(utter);
+  if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
+  // A speech failure (missing voices, an autoplay-policy throw, etc.) must
+  // never block the rest of word setup (highlighting, stats) that follows
+  // this call — that would look exactly like "Start does nothing."
+  try {
+    speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = settings.rate;
+    const voice = speechSynthesis.getVoices().find(v => v.voiceURI === settings.voiceURI);
+    if (voice) utter.voice = voice;
+    speechSynthesis.speak(utter);
+  } catch (e) { /* speech is a bonus channel, not a requirement to keep practicing */ }
 }
 
 // ---------- Keyboard + finger-position hands ----------
@@ -314,10 +319,18 @@ function completeWord() {
   state.stats.wordsCompleted++;
   const clean = !state.currentWordHadError;
   if (clean) state.stats.cleanWords++;
+  let retiredAfterMisses = false;
   if (!clean) {
     state.wordMisses[word] = (state.wordMisses[word] || 0) + 1;
-    const insertAt = Math.min(state.queue.length, 3);
-    state.queue.splice(insertAt, 0, word);
+    // Cap it at 3 misses — endless re-queuing of the same stuck word/sentence
+    // is discouraging, not helpful. After the 3rd miss it moves on instead;
+    // it's still recorded as unmastered so it can come back next session.
+    if (state.wordMisses[word] < 3) {
+      const insertAt = Math.min(state.queue.length, 3);
+      state.queue.splice(insertAt, 0, word);
+    } else {
+      retiredAfterMisses = true;
+    }
   }
   if (!state.customLesson) recordWordResult(word, clean);
   // Wait for the learner to press Enter instead of auto-advancing — gives
@@ -325,7 +338,11 @@ function completeWord() {
   // next word/sentence. Space isn't used for this since many items
   // (multi-word phrases, full sentences) contain real space characters.
   state.awaitingAdvance = true;
-  document.getElementById('advanceHint').hidden = false;
+  const hint = document.getElementById('advanceHint');
+  hint.textContent = retiredAfterMisses
+    ? "Moving on — you'll see this one again next session. Press Enter ↵ to continue."
+    : 'Press Enter ↵ to continue.';
+  hint.hidden = false;
 }
 
 // The live/recorded "accuracy" is completion-based (clean words ÷ words
