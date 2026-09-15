@@ -138,11 +138,8 @@ function keyElFor(char) {
   return document.querySelector(`.key[data-key="${cssEscape(char.toLowerCase())}"]`);
 }
 
-function fingerPosElsFor(fingerName) {
-  return document.querySelectorAll(`.finger-pos[data-finger="${cssEscape(fingerName)}"]`);
-}
 function fingerVisualElsFor(fingerName) {
-  return document.querySelectorAll(`.finger-pos[data-finger="${cssEscape(fingerName)}"] .finger`);
+  return document.querySelectorAll(`.finger-limb[data-finger="${cssEscape(fingerName)}"]`);
 }
 
 function clearActiveKeys() {
@@ -150,34 +147,80 @@ function clearActiveKeys() {
 }
 
 function clearReadyFingers() {
-  document.querySelectorAll('.finger.ready').forEach(f => f.classList.remove('ready'));
+  document.querySelectorAll('.finger-limb.ready').forEach(f => f.classList.remove('ready'));
 }
 
 let currentHighlightChar = null;
 
-// Moves every finger to its resting home-row position, except the one
-// finger (if any) that's reaching for `activeChar` right now — that's the
-// only finger that leaves home row, exactly like real touch-typing posture.
-function positionFingers(activeFinger, activeChar) {
+// Fixed anchor point for each finger/palm — where it sits when resting,
+// in pixels relative to #keyboardWrap. Recomputed only on init and resize
+// (real key positions don't otherwise change), not on every keystroke.
+let fingerBase = {};
+
+function computeHandLayout() {
   const wrap = document.getElementById('keyboardWrap');
   if (!wrap) return;
   const wrapRect = wrap.getBoundingClientRect();
   if (wrapRect.width === 0) return; // not laid out yet (e.g. hidden tab)
 
-  document.querySelectorAll('.finger-pos').forEach(posEl => {
-    const finger = posEl.dataset.finger;
+  const spaceKey = keyElFor(' ');
+  if (!spaceKey) return;
+  const spaceRect = spaceKey.getBoundingClientRect();
+  const spaceX = spaceRect.left + spaceRect.width / 2 - wrapRect.left;
+  const spaceY = spaceRect.top + spaceRect.height / 2 - wrapRect.top;
+  const baseY = spaceY + 34; // knuckle line, just below the space row
+
+  fingerBase = {};
+  ['l-pinky', 'l-ring', 'l-middle', 'l-index', 'r-index', 'r-middle', 'r-ring', 'r-pinky'].forEach(finger => {
+    const keyEl = keyElFor(FINGER_HOME_KEY[finger]);
+    if (!keyEl) return;
+    const r = keyEl.getBoundingClientRect();
+    fingerBase[finger] = { x: r.left + r.width / 2 - wrapRect.left, y: baseY };
+  });
+  fingerBase['thumb-left'] = { x: spaceX - 34, y: baseY };
+  fingerBase['thumb-right'] = { x: spaceX + 34, y: baseY };
+
+  const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const leftX = avg(['l-pinky', 'l-ring', 'l-middle', 'l-index'].map((f) => fingerBase[f].x));
+  const rightX = avg(['r-index', 'r-middle', 'r-ring', 'r-pinky'].map((f) => fingerBase[f].x));
+  const palmLeft = document.getElementById('palmLeft');
+  const palmRight = document.getElementById('palmRight');
+  if (palmLeft) palmLeft.style.transform = `translate(${leftX}px, ${baseY + 10}px)`;
+  if (palmRight) palmRight.style.transform = `translate(${rightX}px, ${baseY + 10}px)`;
+}
+
+// Stretches every finger-limb from its fixed base to whichever key it
+// should be at right now — its own home key by default, or activeChar for
+// the one finger reaching for it. This is what makes the hand look like a
+// real hand (a limb connecting palm to key) instead of a floating block.
+function positionFingers(activeFinger, activeChar) {
+  const wrap = document.getElementById('keyboardWrap');
+  if (!wrap) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  if (wrapRect.width === 0) return;
+
+  document.querySelectorAll('.finger-limb').forEach((limbEl) => {
+    const finger = limbEl.dataset.finger;
+    const baseKey = finger === 'thumb' ? `thumb-${limbEl.dataset.side}` : finger;
+    const base = fingerBase[baseKey];
+    if (!base) return;
     const targetChar = (finger === activeFinger) ? activeChar : FINGER_HOME_KEY[finger];
     const keyEl = keyElFor(targetChar);
     if (!keyEl) return;
     const r = keyEl.getBoundingClientRect();
-    let x = r.left + r.width / 2 - wrapRect.left;
-    const y = r.top + r.height / 2 - wrapRect.top;
-    if (finger === 'thumb') x += posEl.dataset.side === 'left' ? -20 : 20;
-    posEl.style.transform = `translate(${x}px, ${y}px)`;
+    const tx = r.left + r.width / 2 - wrapRect.left;
+    const ty = r.top + r.height / 2 - wrapRect.top;
+    const dx = tx - base.x;
+    const dy = ty - base.y;
+    const length = Math.max(18, Math.sqrt(dx * dx + dy * dy));
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    limbEl.style.width = `${length}px`;
+    limbEl.style.transform = `translate(${base.x}px, ${base.y}px) rotate(${angle}deg)`;
   });
 }
 
 function relayoutHands() {
+  computeHandLayout();
   const finger = currentHighlightChar ? (FINGER_MAP[currentHighlightChar.toLowerCase()] || 'thumb') : null;
   positionFingers(finger, currentHighlightChar);
 }
@@ -332,15 +375,30 @@ function renderWord() {
   const listenHint = document.getElementById('listenHint');
   const isListen = state.mode === 'listen';
   listenHint.hidden = !isListen;
-  el.innerHTML = state.currentWord.split('').map((c, i) => {
+  // Consecutive non-space characters are grouped into one inline-block
+  // "word-group" so a long word wraps to the next line as a whole unit
+  // instead of the browser splitting it mid-word between two independent
+  // letter spans -- no more orphaned single letters stranded on a line.
+  // Spaces stay outside any group as normal breakable text, so wrapping
+  // only ever happens at real word boundaries.
+  let html = '';
+  let buffer = '';
+  const flushBuffer = () => { if (buffer) { html += `<span class="word-group">${buffer}</span>`; buffer = ''; } };
+
+  state.currentWord.split('').forEach((c, i) => {
     const classes = ['ch'];
     if (i < state.expectedIndex) classes.push('done');
     if (i === state.expectedIndex) classes.push('current');
-    let shown = c;
-    if (c === ' ') shown = '\u00A0';
-    else if (isListen && i >= state.expectedIndex) shown = '•';
-    return `<span class="${classes.join(' ')}">${shown}</span>`;
-  }).join('');
+    if (c === ' ') {
+      flushBuffer();
+      html += `<span class="${classes.join(' ')} space-ch"> </span>`;
+    } else {
+      const shown = (isListen && i >= state.expectedIndex) ? '•' : c;
+      buffer += `<span class="${classes.join(' ')}">${shown}</span>`;
+    }
+  });
+  flushBuffer();
+  el.innerHTML = html;
 }
 
 function shakeCurrentChar() {
@@ -624,6 +682,7 @@ function applySettingsToUI() {
 function init() {
   loadSettings();
   buildKeyboard();
+  computeHandLayout();
   positionFingers(null, null); // rest every finger on home row before anything starts
   renderLegend();
   populateLevelSelect();
