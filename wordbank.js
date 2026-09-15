@@ -7,11 +7,16 @@
 // the filtering (by allowed letters, length, digraphs, etc).
 
 const COMMON_WORDS = [
-  // Home-row-friendly (a is the only home-row vowel) + very short words
-  'dad', 'sad', 'add', 'ask', 'all', 'fall', 'gas', 'has', 'half', 'flag',
-  'glad', 'salad', 'flask', 'alas', 'gash', 'lash', 'dash', 'hall', 'ash',
-  'hash', 'gala', 'salsa', 'glass', 'lad', 'lads', 'jak', 'jag', 'gag',
-  'hag', 'lag', 'sag', 'dag', 'fad', 'fads', 'gads', 'gals', 'halls',
+  // Home-row-friendly (a is the only home-row vowel) + very short words.
+  // Home row (a s d f g h j k l) only spells a handful of real English
+  // words — resist the urge to pad with lookalikes ("jak", "dag", "gads"
+  // aren't words; "hag"/"jag" are real but obscure/unpleasant for a young
+  // learner). A short, genuinely real list that repeats across lessons
+  // beats a longer list with fake or unfamiliar entries mixed in.
+  'dad', 'had', 'sad', 'add', 'ask', 'all', 'fall', 'gas', 'has', 'half',
+  'flag', 'glad', 'salad', 'flask', 'gash', 'lash', 'dash', 'sash', 'hall',
+  'halls', 'ash', 'hash', 'gala', 'salsa', 'glass', 'lad', 'fad', 'fads',
+  'sag', 'gag', 'lag',
 
   // Very common short words (2-4 letters)
   'the', 'a', 'i', 'it', 'is', 'at', 'if', 'of', 'do', 'go', 'to', 'so',
