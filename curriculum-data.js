@@ -3199,7 +3199,7 @@ const LEVELS = [
           "Pack light: one bag, one coat, and good shoes.",
           "My best friend (who lives next door) is visiting.",
           "The bakery (just around the corner) smells wonderful.",
-          "The relay race — fast, loud, and fun — ended in a tie."
+          "The relay race - fast, loud, and fun - ended in a tie."
         ]
       }
     ]
@@ -5079,7 +5079,7 @@ const LEVELS = [
           "The neighborhood celebrated its anniversary together.",
           "The engineer designed an impressive suspension bridge.",
           "The gymnast performed an incredible acrobatic routine.",
-          "The relay race — fast, loud, and fun — ended in a tie.",
+          "The relay race - fast, loud, and fun - ended in a tie.",
           "The documentary explored the mysteries of the universe.",
           "The professor discussed an interesting theory in class."
         ]
@@ -5117,7 +5117,7 @@ const LEVELS = [
           "The neighborhood celebrated its anniversary together.",
           "The engineer designed an impressive suspension bridge.",
           "The gymnast performed an incredible acrobatic routine.",
-          "The relay race — fast, loud, and fun — ended in a tie.",
+          "The relay race - fast, loud, and fun - ended in a tie.",
           "The documentary explored the mysteries of the universe.",
           "The professor discussed an interesting theory in class.",
           "The scientist discovered something truly extraordinary.",

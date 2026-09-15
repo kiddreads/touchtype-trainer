@@ -45,6 +45,23 @@ LEVELS.slice(0, 3).forEach(level => {
   });
 });
 
+// Every character must be producible by a plain keydown on a US keyboard
+// (what e.key actually returns) — smart quotes, em/en-dashes, ellipsis
+// characters etc. would be silently untypable, since a real keyboard press
+// never generates them. Caught a real "—" (em-dash) this way once already.
+const TYPABLE = new Set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?;:\'"()-/'.split(''));
+LEVELS.forEach(level => {
+  level.lessons.forEach(lesson => {
+    lesson.words.forEach(word => {
+      for (const ch of word) {
+        if (!TYPABLE.has(ch)) {
+          fail(`level ${level.id} lesson ${lesson.id} item "${word}" contains untypable character ${JSON.stringify(ch)} (not producible by a plain keydown)`);
+        }
+      }
+    });
+  });
+});
+
 // Difficulty should trend upward within each level (lesson 24 harder than lesson 1).
 LEVELS.forEach(level => {
   const avgLen = words => words.reduce((s, w) => s + w.length, 0) / words.length;

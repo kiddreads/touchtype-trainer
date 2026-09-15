@@ -32,10 +32,13 @@ open-source web app.
   already taught). From level 5 on, every level **alternates** plain-word
   lessons with full-sentence lessons, and every level gets harder from its
   first lesson to its 24th.
-- **On-screen keyboard *and* animated finger-position hands** — every key is
-  color-coded by which finger should press it, and a schematic pair of
-  hands below shows the actual finger lighting up and "tapping" in real
-  time, so you're building muscle memory for hand position, not just
+- **On-screen keyboard *and* animated finger-position hands overlaid on it**
+  — every key is color-coded by which finger should press it, and a
+  schematic pair of hands rests directly on top of the keyboard at real
+  home-row position (left pinky on A, right index on J, etc.). Only the one
+  finger that needs the next key stretches out to reach it and "taps," then
+  returns home — every other finger stays put, matching real touch-typing
+  posture instead of just
   memorizing key colors.
 - **Listen & Type mode** — hides the word and shows only audio + a dot
   outline that reveals letters as you type them correctly, for dictation-

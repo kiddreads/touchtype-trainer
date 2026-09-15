@@ -138,8 +138,11 @@ function keyElFor(char) {
   return document.querySelector(`.key[data-key="${cssEscape(char.toLowerCase())}"]`);
 }
 
-function fingerElsFor(fingerName) {
-  return document.querySelectorAll(`.finger[data-finger="${cssEscape(fingerName)}"]`);
+function fingerPosElsFor(fingerName) {
+  return document.querySelectorAll(`.finger-pos[data-finger="${cssEscape(fingerName)}"]`);
+}
+function fingerVisualElsFor(fingerName) {
+  return document.querySelectorAll(`.finger-pos[data-finger="${cssEscape(fingerName)}"] .finger`);
 }
 
 function clearActiveKeys() {
@@ -150,19 +153,51 @@ function clearReadyFingers() {
   document.querySelectorAll('.finger.ready').forEach(f => f.classList.remove('ready'));
 }
 
-// Steady "press this next" glow on both the key and the finger that should press it.
+let currentHighlightChar = null;
+
+// Moves every finger to its resting home-row position, except the one
+// finger (if any) that's reaching for `activeChar` right now — that's the
+// only finger that leaves home row, exactly like real touch-typing posture.
+function positionFingers(activeFinger, activeChar) {
+  const wrap = document.getElementById('keyboardWrap');
+  if (!wrap) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  if (wrapRect.width === 0) return; // not laid out yet (e.g. hidden tab)
+
+  document.querySelectorAll('.finger-pos').forEach(posEl => {
+    const finger = posEl.dataset.finger;
+    const targetChar = (finger === activeFinger) ? activeChar : FINGER_HOME_KEY[finger];
+    const keyEl = keyElFor(targetChar);
+    if (!keyEl) return;
+    const r = keyEl.getBoundingClientRect();
+    let x = r.left + r.width / 2 - wrapRect.left;
+    const y = r.top + r.height / 2 - wrapRect.top;
+    if (finger === 'thumb') x += posEl.dataset.side === 'left' ? -20 : 20;
+    posEl.style.transform = `translate(${x}px, ${y}px)`;
+  });
+}
+
+function relayoutHands() {
+  const finger = currentHighlightChar ? (FINGER_MAP[currentHighlightChar.toLowerCase()] || 'thumb') : null;
+  positionFingers(finger, currentHighlightChar);
+}
+
+// Steady "press this next" glow on both the key and the finger that should
+// stretch out to press it; every other finger stays resting on home row.
 function highlightKey(char) {
   clearActiveKeys();
   clearReadyFingers();
-  if (char === undefined) return;
+  currentHighlightChar = char === undefined ? null : char;
+  if (char === undefined) { positionFingers(null, null); return; }
   const keyEl = keyElFor(char);
   if (keyEl) keyEl.classList.add('active');
   const finger = FINGER_MAP[char.toLowerCase()] || 'thumb';
-  fingerElsFor(finger).forEach(f => f.classList.add('ready'));
+  positionFingers(finger, char);
+  fingerVisualElsFor(finger).forEach(f => f.classList.add('ready'));
   if (char !== char.toLowerCase() && char !== ' ') {
     // Uppercase letter: nudge the opposite pinky toward Shift too.
     const shiftSide = finger.startsWith('l-') ? 'r-pinky' : 'l-pinky';
-    fingerElsFor(shiftSide).forEach(f => f.classList.add('ready-shift'));
+    fingerVisualElsFor(shiftSide).forEach(f => f.classList.add('ready-shift'));
     clearTimeout(fingerTapTimer);
     fingerTapTimer = setTimeout(() => {
       document.querySelectorAll('.finger.ready-shift').forEach(f => f.classList.remove('ready-shift'));
@@ -173,7 +208,7 @@ function highlightKey(char) {
 // Brief "tap" animation on the finger that just pressed a correct key.
 function tapFinger(char) {
   const finger = FINGER_MAP[char.toLowerCase()] || 'thumb';
-  fingerElsFor(finger).forEach(f => {
+  fingerVisualElsFor(finger).forEach(f => {
     f.classList.add('tap');
     setTimeout(() => f.classList.remove('tap'), 160);
   });
@@ -187,7 +222,7 @@ function flashErrorKey(char) {
     errorFlashTimer = setTimeout(() => keyEl.classList.remove('error'), 300);
   }
   const finger = FINGER_MAP[char.toLowerCase()] || 'thumb';
-  fingerElsFor(finger).forEach(f => {
+  fingerVisualElsFor(finger).forEach(f => {
     f.classList.add('tap-error');
     setTimeout(() => f.classList.remove('tap-error'), 300);
   });
@@ -272,6 +307,7 @@ function pauseLesson() {
   document.getElementById('startBtn').hidden = false;
   document.getElementById('pauseBtn').hidden = true;
   document.getElementById('wordDisplay').textContent = 'Paused. Press Start to resume.';
+  highlightKey(undefined);
 }
 
 function nextWord() {
@@ -371,8 +407,7 @@ function finishSession() {
   document.getElementById('wordDisplay').innerHTML =
     `<span class="session-message">Lesson complete! ${wpm} WPM, ${accuracy}% accuracy 🎉</span>`;
   document.getElementById('listenHint').hidden = true;
-  clearActiveKeys();
-  clearReadyFingers();
+  highlightKey(undefined);
   state.active = false;
   document.getElementById('startBtn').hidden = false;
   document.getElementById('pauseBtn').hidden = true;
@@ -589,6 +624,7 @@ function applySettingsToUI() {
 function init() {
   loadSettings();
   buildKeyboard();
+  positionFingers(null, null); // rest every finger on home row before anything starts
   renderLegend();
   populateLevelSelect();
   populateLessonSelectForLevel(Number(document.getElementById('levelSelect').value) || LEVELS[0].id);
@@ -596,6 +632,14 @@ function init() {
   renderDashboard();
   renderAiLessonList();
   checkAiAvailability();
+
+  // Key positions depend on the rendered layout (responsive sizing, font
+  // changes from Easy Read), so re-anchor the hands whenever that can shift.
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(relayoutHands, 100);
+  });
 
   if ('speechSynthesis' in window) {
     populateVoices();

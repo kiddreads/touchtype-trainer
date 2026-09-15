@@ -28,3 +28,11 @@ const KEYBOARD_ROWS = [
   ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'],
   ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/']
 ];
+
+// Each finger's resting position — where it sits on home row when not
+// reaching for something else. Used to place the animated hand graphic.
+const FINGER_HOME_KEY = {
+  'l-pinky': 'a', 'l-ring': 's', 'l-middle': 'd', 'l-index': 'f',
+  'r-index': 'j', 'r-middle': 'k', 'r-ring': 'l', 'r-pinky': ';',
+  'thumb': ' '
+};

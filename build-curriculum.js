@@ -133,7 +133,7 @@ function buildPunctuationSentencePool() {
     'The chef announced, "Dinner is ready!"',
     'Pack light: one bag, one coat, and good shoes.',
     'My best friend (who lives next door) is visiting.',
-    'The relay race — fast, loud, and fun — ended in a tie.'
+    'The relay race - fast, loud, and fun - ended in a tie.'
   ];
 }
 
