@@ -4,25 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TypeAloud — Learn to Touch Type</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="topbar">
-  <h1>⌨️ TypeAloud</h1>
+  <div class="brand">
+    <span class="brand-mark">⌨️</span>
+    <div class="brand-text">
+      <h1>TypeAloud</h1>
+      <p class="brand-tagline">Learn to touch type, for real</p>
+    </div>
+  </div>
   <div class="controls">
-    <label>Level:
+    <label class="control-field">Level
       <select id="levelSelect"></select>
     </label>
-    <label>Lesson:
+    <label class="control-field">Lesson
       <select id="lessonSelect"></select>
     </label>
-    <button id="startBtn">Start</button>
-    <button id="pauseBtn" hidden>Pause</button>
+    <button id="startBtn" class="btn-primary">▶ Start</button>
+    <button id="pauseBtn" class="btn-primary" hidden>⏸ Pause</button>
     <button id="modeToggle">👁️ See &amp; Type</button>
     <button id="statsToggle" title="Show/hide live stats — they're always recorded either way">📊 Live Stats</button>
     <button id="contrastToggle">◑ High Contrast</button>
     <button id="easyReadToggle">Aa Easy Read</button>
-    <label>Speed:
+    <label class="control-field control-field-slider">Speed
       <input type="range" id="rateSlider" min="0.5" max="1.3" step="0.1" value="0.9">
     </label>
     <select id="voiceSelect"></select>
@@ -30,51 +39,65 @@
 </header>
 
 <main>
-  <section class="lesson-info" id="lessonInfo">
+  <section class="card lesson-info" id="lessonInfo">
     <h2 id="lessonTitle">Pick a level and lesson, then press Start</h2>
     <p id="lessonDesc"></p>
     <div class="progress-bar"><div id="progressFill"></div></div>
   </section>
 
   <section class="stats" id="stats">
-    <span>Accuracy: <b id="accuracyStat">100%</b></span>
-    <span>WPM: <b id="wpmStat">0</b></span>
-    <span>Words left: <b id="queueStat">0</b></span>
+    <div class="stat-chip">
+      <span class="stat-icon">🎯</span>
+      <span class="stat-label">Accuracy</span>
+      <b id="accuracyStat">100%</b>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-icon">⚡</span>
+      <span class="stat-label">WPM</span>
+      <b id="wpmStat">0</b>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-icon">📋</span>
+      <span class="stat-label">Words left</span>
+      <b id="queueStat">0</b>
+    </div>
   </section>
 
-  <section class="practice-area">
+  <section class="card practice-area">
     <button id="replayBtn" title="Replay audio">🔊</button>
     <div id="wordDisplay" class="word-display" aria-live="polite"></div>
     <div id="listenHint" class="listen-hint" hidden>Listen carefully and type what you hear.</div>
     <div id="advanceHint" class="advance-hint" hidden>Press Enter ↵ or Space to continue.</div>
   </section>
 
-  <section class="keyboard-wrap" id="keyboardWrap">
-    <div class="keyboard" id="keyboard" aria-hidden="true"></div>
-    <div class="hands" id="hands" aria-hidden="true">
-      <div class="palm" id="palmLeft"></div>
-      <div class="palm" id="palmRight"></div>
-      <div class="finger-limb f-l-pinky" data-finger="l-pinky" title="Left pinky"></div>
-      <div class="finger-limb f-l-ring" data-finger="l-ring" title="Left ring"></div>
-      <div class="finger-limb f-l-middle" data-finger="l-middle" title="Left middle"></div>
-      <div class="finger-limb f-l-index" data-finger="l-index" title="Left index"></div>
-      <div class="finger-limb thumb f-thumb" data-finger="thumb" data-side="left" title="Left thumb"></div>
-      <div class="finger-limb thumb f-thumb" data-finger="thumb" data-side="right" title="Right thumb"></div>
-      <div class="finger-limb f-r-index" data-finger="r-index" title="Right index"></div>
-      <div class="finger-limb f-r-middle" data-finger="r-middle" title="Right middle"></div>
-      <div class="finger-limb f-r-ring" data-finger="r-ring" title="Right ring"></div>
-      <div class="finger-limb f-r-pinky" data-finger="r-pinky" title="Right pinky"></div>
-    </div>
+  <section class="card keyboard-card">
+    <section class="keyboard-wrap" id="keyboardWrap">
+      <div class="keyboard" id="keyboard" aria-hidden="true"></div>
+      <div class="hands" id="hands" aria-hidden="true">
+        <div class="palm" id="palmLeft"></div>
+        <div class="palm" id="palmRight"></div>
+        <div class="finger-limb f-l-pinky" data-finger="l-pinky" title="Left pinky"></div>
+        <div class="finger-limb f-l-ring" data-finger="l-ring" title="Left ring"></div>
+        <div class="finger-limb f-l-middle" data-finger="l-middle" title="Left middle"></div>
+        <div class="finger-limb f-l-index" data-finger="l-index" title="Left index"></div>
+        <div class="finger-limb thumb f-thumb" data-finger="thumb" data-side="left" title="Left thumb"></div>
+        <div class="finger-limb thumb f-thumb" data-finger="thumb" data-side="right" title="Right thumb"></div>
+        <div class="finger-limb f-r-index" data-finger="r-index" title="Right index"></div>
+        <div class="finger-limb f-r-middle" data-finger="r-middle" title="Right middle"></div>
+        <div class="finger-limb f-r-ring" data-finger="r-ring" title="Right ring"></div>
+        <div class="finger-limb f-r-pinky" data-finger="r-pinky" title="Right pinky"></div>
+      </div>
+    </section>
+    <section class="finger-legend" id="fingerLegend"></section>
   </section>
-  <section class="finger-legend" id="fingerLegend"></section>
 
-  <section class="ai-lab" id="aiLab" hidden>
+  <section class="card ai-lab" id="aiLab" hidden>
     <h2>🤖 AI Lesson Lab <span class="badge">localhost only</span></h2>
     <p class="muted" id="aiLabStatus"></p>
     <div class="ai-lab-controls">
       <input type="text" id="aiTheme" placeholder="Theme, e.g. dinosaurs, space, soccer">
       <label><input type="checkbox" id="aiSentenceMode"> Full sentences</label>
-      <button id="aiGenerateBtn">Generate lesson</button>
+      <button id="aiGenerateBtn" class="btn-primary">Generate lesson</button>
     </div>
     <div id="aiLabResult" hidden>
       <p id="aiLabWords"></p>
@@ -87,8 +110,8 @@
     </div>
   </section>
 
-  <section class="dashboard" id="dashboard">
-    <strong>Your progress</strong>
+  <section class="card dashboard" id="dashboard">
+    <h2 class="dashboard-title">📈 Your progress</h2>
     <p class="muted" id="lifetimeSummary"></p>
     <table id="dashboardTable"></table>
     <button id="resetProgressBtn">Reset all progress</button>
