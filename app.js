@@ -208,10 +208,7 @@ function positionFingers(activeFinger, activeChar) {
     if (!keyEl) return;
     const r = keyEl.getBoundingClientRect();
     const tx = r.left + r.width / 2 - wrapRect.left;
-    // Land on the lower part of the key rather than dead-center — the
-    // letter is centered in the key, so this keeps it visible above the
-    // fingertip pad instead of covered by it.
-    const ty = r.top + r.height * 0.72 - wrapRect.top;
+    const ty = r.top + r.height / 2 - wrapRect.top;
     const dx = tx - base.x;
     const dy = ty - base.y;
     const length = Math.max(18, Math.sqrt(dx * dx + dy * dy));

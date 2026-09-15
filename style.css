@@ -281,62 +281,50 @@ main {
   margin-left: -46px;
   border-radius: 40% 40% 55% 55% / 55% 55% 45% 45%;
   background: var(--border);
-  opacity: 0.55;
+  opacity: 0.4;
   transition: transform 0.16s ease;
 }
 
 .finger-limb {
   position: absolute;
-  top: -8px;
+  top: -7px;
   left: 0;
-  height: 16px;
-  border-radius: 8px;
+  height: 14px;
+  border-radius: 7px;
   /* Resting fingers are a bit more see-through and only slightly less
      saturated than the active one — enough that a resting finger is
      obviously not "press this now," and enough to read the letter under
      it, but still close enough to the finger's true color that the
      color-matches-its-keys teaching effect (the whole point) holds up
      even at rest. Only .ready gets fully bright/saturated. */
-  opacity: 0.22;
+  opacity: 0.18;
   filter: saturate(0.8) brightness(0.97);
   transform-origin: 0% 50%;
-  /* Gentle taper toward the fingertip, like a real finger rather than a
-     uniform bar — clip-path percentages scale correctly as JS resizes
-     this element's width every keystroke. */
-  clip-path: polygon(0% 12%, 100% 28%, 100% 72%, 0% 88%);
   transition: transform 0.16s ease, width 0.16s ease, opacity 0.15s ease, box-shadow 0.15s ease, filter 0.12s ease;
 }
 
 .finger-limb::after {
-  /* Fingertip pad. Lands on the lower part of the key (see
-     positionFingers' target-point bias in app.js) rather than
-     dead-center, so the letter stays visible above it even when the
-     pad is fully opaque in the .ready state. */
+  /* fingertip cap */
   content: '';
   position: absolute;
-  right: -9px;
-  top: -2px;
-  width: 20px;
-  height: 18px;
-  border-radius: 6px 6px 9px 9px;
+  right: -5px;
+  top: -1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
   background: inherit;
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
 }
 
 .finger-limb.thumb {
-  height: 18px;
-  top: -9px;
-  clip-path: none;
-}
-
-.finger-limb.thumb::after {
-  width: 22px;
-  height: 20px;
-  border-radius: 10px;
+  height: 16px;
+  top: -8px;
 }
 
 .finger-limb.ready {
-  opacity: 1;
+  /* Even the active finger stays a little see-through — fully opaque
+     (opacity: 1) was still hiding the letter on the key you're about to
+     press, which is the one moment legibility matters most. */
+  opacity: 0.78;
   filter: saturate(1) brightness(1.15);
   box-shadow: 0 0 0 2px var(--accent), 0 3px 6px rgba(0, 0, 0, 0.25);
 }
@@ -346,13 +334,13 @@ main {
 }
 
 .finger-limb.tap {
-  opacity: 1;
+  opacity: 0.82;
   filter: saturate(1) brightness(1.4);
   box-shadow: 0 0 0 3px var(--accent);
 }
 
 .finger-limb.tap-error {
-  opacity: 1;
+  opacity: 0.82;
   filter: saturate(1) brightness(1.1);
   box-shadow: 0 0 0 3px var(--error);
 }
