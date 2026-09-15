@@ -291,13 +291,14 @@ main {
   left: 0;
   height: 16px;
   border-radius: 8px;
-  /* Resting fingers are dim and desaturated — clearly "not what to press
-     right now" — so the letters underneath stay easy to read. Only the
-     one finger currently reaching for a key (.ready) gets bright and
-     saturated. Before this fix, resting and ready looked almost
-     identical, so every key under a resting finger was hard to read too. */
-  opacity: 0.3;
-  filter: saturate(0.4) brightness(0.95);
+  /* Resting fingers are a bit more see-through and only slightly less
+     saturated than the active one — enough that a resting finger is
+     obviously not "press this now," and enough to read the letter under
+     it, but still close enough to the finger's true color that the
+     color-matches-its-keys teaching effect (the whole point) holds up
+     even at rest. Only .ready gets fully bright/saturated. */
+  opacity: 0.22;
+  filter: saturate(0.8) brightness(0.97);
   transform-origin: 0% 50%;
   /* Gentle taper toward the fingertip, like a real finger rather than a
      uniform bar — clip-path percentages scale correctly as JS resizes
