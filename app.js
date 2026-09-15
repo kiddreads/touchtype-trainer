@@ -23,7 +23,6 @@ const state = {
 };
 
 let settings = { rate: 0.9, voiceURI: null, contrast: false, easyRead: false, autoSpeak: true, showLiveStats: true };
-let errorFlashTimer = null;
 let fingerTapTimer = null;
 
 function loadSettings() {
@@ -263,9 +262,13 @@ function tapFinger(char) {
 function flashErrorKey(char) {
   const keyEl = keyElFor(char);
   if (keyEl) {
+    // Each key clears its OWN error flash independently. A single shared
+    // timer here used to be the bug: clearTimeout(errorFlashTimer) would
+    // cancel the previous wrong key's pending removal without ever
+    // replacing it, so if you mashed two different wrong keys in a row,
+    // the first one's red highlight never got cleared — permanently stuck.
     keyEl.classList.add('error');
-    clearTimeout(errorFlashTimer);
-    errorFlashTimer = setTimeout(() => keyEl.classList.remove('error'), 300);
+    setTimeout(() => keyEl.classList.remove('error'), 300);
   }
   const finger = FINGER_MAP[char.toLowerCase()] || 'thumb';
   fingerVisualElsFor(finger).forEach(f => {
