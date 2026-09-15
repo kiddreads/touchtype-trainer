@@ -1,72 +1,114 @@
 # TypeAloud
 
 An open-source, multi-sensory touch-typing tutor for the browser, inspired by
-[Touch-type Read and Spell (TTRS)](https://www.readandspell.com). No install,
-no build step — just static HTML/CSS/JS.
+[Touch-type Read and Spell (TTRS)](https://www.readandspell.com). No build
+step for the core app — just static HTML/CSS/JS, plus one optional local
+Node server for AI-generated bonus lessons.
 
 ## Why
 
 TTRS teaches touch typing through three channels at once: the word is spoken
 aloud, shown on screen, and then typed by the learner. It uses real, whole,
-phonics-based words from lesson one instead of random letter drills, and it
-adapts — words you get wrong come back around for another try. TypeAloud
-reimplements that core loop as a small, free, open-source web app.
+phonics-based words from lesson one instead of random letter drills, it
+adapts — words you get wrong come back around for another try — and its
+scoring is completion- and accuracy-based rather than a punishing raw
+keystroke count. TypeAloud reimplements that core loop as a small, free,
+open-source web app.
 
 ## Features
 
-- **Multi-sensory loop** — every word is spoken aloud (Web Speech API), shown
-  on screen, and typed by the learner.
-- **Real words, not gibberish** — each lesson only uses words made of keys
-  already taught, but they're always genuine, whole, phonics-friendly English
-  words (or real short sentences by lesson 5) — never random letter strings.
-- **Progressive curriculum** — home row → top row → bottom row → numbers →
-  capitals & punctuation → mixed review, each lesson restricted to keys
-  introduced so far (verified by `test/curriculum.test.js`).
-- **On-screen keyboard with finger guide** — every key is color-coded by
-  which finger should press it, with the next key glowing so learners build
-  muscle memory instead of hunting for letters.
+- **Multi-sensory loop** — every word/sentence is spoken aloud (Web Speech
+  API), shown on screen, and typed by the learner.
+- **Real words and sentences, never gibberish** — the entire curriculum
+  (10 levels × 24 lessons = 240 lessons, `curriculum-data.js`) is generated
+  by `build-curriculum.js` by filtering a real English word bank
+  (`wordbank.js`) and a set of hand-written, grammatically correct sentences
+  — never invented on the fly. `test/curriculum.test.js` verifies structure,
+  letter-availability, and difficulty progression on every regeneration.
+- **Progressive curriculum**: Home Row → Top Row → Bottom Row → Numbers →
+  Capitals & End Punctuation → More Punctuation & Contractions → Tricky
+  Letter Teams (digraphs) → Long Words → Full Sentences → Mixed Speed
+  Review. Levels 1–4 are pure key-introduction (each word only uses keys
+  already taught). From level 5 on, every level **alternates** plain-word
+  lessons with full-sentence lessons, and every level gets harder from its
+  first lesson to its 24th.
+- **On-screen keyboard *and* animated finger-position hands** — every key is
+  color-coded by which finger should press it, and a schematic pair of
+  hands below shows the actual finger lighting up and "tapping" in real
+  time, so you're building muscle memory for hand position, not just
+  memorizing key colors.
 - **Listen & Type mode** — hides the word and shows only audio + a dot
-  outline that reveals letters as you type them correctly, for dictation-style
-  practice once a lesson feels easy.
-- **Adaptive repetition** — a word typed with a mistake is requeued a few
-  words later in the same session; it only counts as "mastered" after two
-  clean back-to-back passes, tracked across sessions.
+  outline that reveals letters as you type them correctly, for dictation-
+  style practice once a lesson feels easy.
+- **Adaptive repetition** — a word/sentence typed with a mistake is requeued
+  a few items later in the same session; it only counts as "mastered" after
+  two clean back-to-back passes, tracked across sessions.
+- **Fair, completion-based scoring** — accuracy is *clean words ÷ words
+  attempted*, not a raw keystroke ratio, so getting stuck on one letter and
+  pressing the wrong key several times before noticing only costs you that
+  one word, not five separate strikes against you. You advance to the next
+  word/sentence by pressing **Enter**, not automatically and not on Space
+  (many items contain real spaces), so mistakes don't get swept past unseen.
+- **Stats are always recorded, display is optional** — WPM, accuracy, and
+  full session history are saved to `localStorage` every time regardless of
+  the "Live Stats" toggle; the toggle only hides the on-screen numbers while
+  you type, for anyone who finds live numbers distracting.
 - **Distraction-free, adjustable UI** — high-contrast theme and an "Easy
-  Read" mode (larger text, extra letter/line spacing) for learners who find
-  the default look hard to read.
-- **Progress dashboard** — words mastered, best WPM, and best accuracy per
-  lesson, stored locally in the browser (`localStorage`), nothing sent
-  anywhere.
+  Read" mode (larger text, extra letter/line spacing).
+- **Progress dashboard** — lessons mastered per level, best WPM/accuracy,
+  and lifetime totals, all local, nothing sent anywhere.
+- **AI Lesson Lab (localhost only)** — generate extra themed lessons on the
+  fly with an LLM. This only appears when the app is served by `server.js`
+  *and* an API key is configured; it's absent from the GitHub Pages build
+  and from a plain static file server, since neither can hold a secret key
+  or call an AI API.
 
 ## Running it
 
-No build tools needed:
+**Core app, no AI features:**
 
 ```sh
 python3 -m http.server 8000
 ```
 
-then open `http://localhost:8000`. Or just open `index.html` directly in a
-browser (speech synthesis and everything else works from a `file://` URL too).
+then open `http://localhost:8000`. Or just open `index.html` directly.
+
+**With the AI Lesson Lab enabled:**
+
+```sh
+ANTHROPIC_API_KEY=sk-ant-... node server.js
+# or: OPENAI_API_KEY=sk-... node server.js
+```
+
+then open `http://localhost:8935` (or `$PORT`). Without a key set, `server.js`
+still serves the full static app fine — the AI panel just checks
+`GET /api/health` on load and stays hidden/disabled until a key exists.
 
 ## How typing is checked
 
-Wrong keystrokes are blocked in place rather than accepted and then corrected:
-if you press the wrong key, the on-screen key and the current letter flash
-red and nothing is added, so learners never end up staring at a garbled word.
-The correct key must be pressed to advance. This is deliberately more
-forgiving than a strict typing test — the goal is muscle memory, not speed
-under pressure.
+Wrong keystrokes are blocked in place rather than accepted and then
+corrected: press the wrong key and the on-screen key, the matching finger on
+the hand graphic, and the current letter all flash red — nothing is added to
+the word. The correct key must be pressed to advance, and repeatedly mashing
+the same wrong key only counts once against your accuracy for that letter.
+When you finish a word/sentence, it stays on screen until you press Enter,
+so you always see the result before moving on.
 
-## Extending it
+## Regenerating or extending the curriculum
 
-- Add more lessons or words in `words.js` — each lesson lists the new keys it
-  introduces plus a `words` array; run `test/curriculum.test.js` to check new
-  words don't use letters that haven't been taught yet.
-- The finger/key color map is also in `words.js` (`FINGER_MAP`,
-  `KEYBOARD_ROWS`), if you want a different keyboard layout (e.g. Dvorak or a
-  non-US layout).
-- All practice logic lives in `app.js`; there's no framework or build step.
+```sh
+node build-curriculum.js   # rebuilds curriculum-data.js from wordbank.js
+node test/curriculum.test.js
+```
+
+- Add words to `wordbank.js`, or edit the pools/sentences/templates in
+  `build-curriculum.js`, then regenerate. Everything is deterministic (no
+  randomness), so a given wordbank always produces the same curriculum.
+- The finger/key color map and physical layout live in `keyboard.js`
+  (`FINGER_MAP`, `KEYBOARD_ROWS`) — edit these for a different layout (e.g.
+  Dvorak) or region.
+- All practice/UI logic lives in `app.js`; the AI backend lives in
+  `server.js`. Neither requires a build step or dependencies.
 
 ## License
 

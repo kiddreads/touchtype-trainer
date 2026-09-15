@@ -167,6 +167,13 @@ main {
   font-size: 0.95rem;
 }
 
+.advance-hint {
+  margin-top: 10px;
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 .session-message {
   font-size: 1.4rem;
   color: var(--correct);
@@ -201,20 +208,88 @@ main {
   user-select: none;
 }
 
-.key.f-l-pinky { background: var(--f-l-pinky); }
-.key.f-l-ring { background: var(--f-l-ring); }
-.key.f-l-middle { background: var(--f-l-middle); }
-.key.f-l-index { background: var(--f-l-index); }
-.key.f-r-index { background: var(--f-r-index); }
-.key.f-r-middle { background: var(--f-r-middle); }
-.key.f-r-ring { background: var(--f-r-ring); }
-.key.f-r-pinky { background: var(--f-r-pinky); }
-.key.f-thumb { background: var(--f-thumb); }
+/* Shared finger-color classes — used by both keyboard keys and the hand graphic. */
+.f-l-pinky { background: var(--f-l-pinky); }
+.f-l-ring { background: var(--f-l-ring); }
+.f-l-middle { background: var(--f-l-middle); }
+.f-l-index { background: var(--f-l-index); }
+.f-r-index { background: var(--f-r-index); }
+.f-r-middle { background: var(--f-r-middle); }
+.f-r-ring { background: var(--f-r-ring); }
+.f-r-pinky { background: var(--f-r-pinky); }
+.f-thumb { background: var(--f-thumb); }
 
 .key.active {
   opacity: 1;
   transform: scale(1.15);
   box-shadow: 0 0 0 3px var(--accent);
+}
+
+/* ---------- Animated finger-position hands ---------- */
+
+.hands {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  margin: 4px 0 18px;
+}
+
+.hand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fingers-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.finger {
+  width: 20px;
+  height: 52px;
+  border-radius: 10px 10px 5px 5px;
+  opacity: 0.45;
+  transition: transform 0.12s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.finger.thumb {
+  height: 34px;
+  border-radius: 10px;
+  margin: 0 2px;
+}
+
+.palm {
+  width: 96px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--border);
+  opacity: 0.5;
+  margin-top: -4px;
+}
+
+.finger.ready {
+  opacity: 1;
+  transform: translateY(-7px);
+  box-shadow: 0 0 0 3px var(--accent), 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.finger.ready-shift {
+  opacity: 0.9;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.finger.tap {
+  opacity: 1;
+  transform: translateY(6px) scaleY(0.9);
+}
+
+.finger.tap-error {
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--error);
+  transform: translateY(2px);
 }
 
 .key.error {
@@ -265,6 +340,60 @@ main {
 
 .dashboard table { width: 100%; border-collapse: collapse; }
 .dashboard td, .dashboard th { padding: 4px 8px; text-align: left; }
+
+.stats.hidden { display: none; }
+
+.muted { color: var(--muted); font-size: 0.85rem; }
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.ai-lab {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.ai-lab h2 { margin: 0 0 6px; font-size: 1rem; }
+
+.ai-lab-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.ai-lab-controls input[type="text"] {
+  flex: 1;
+  min-width: 180px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+#aiLessonList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ai-saved-lesson {
+  font-size: 0.8rem;
+}
 
 .sr-only {
   position: absolute;
