@@ -533,9 +533,8 @@ function recordLifetimeSession({ wpm, accuracy, rawAccuracy, durationMs, wordsCo
 
 function renderDashboard() {
   const progress = loadProgress();
-  const table = document.getElementById('dashboardTable');
-  const rows = ['<tr><th>Level</th><th>Lessons with mastery</th><th>Best WPM</th><th>Best accuracy</th></tr>'];
-  LEVELS.forEach(level => {
+  const grid = document.getElementById('dashboardTable');
+  grid.innerHTML = LEVELS.map(level => {
     let masteredLessons = 0, bestWpm = 0, bestAcc = 0, any = false;
     level.lessons.forEach(lesson => {
       const data = progress[`${level.id}:${lesson.id}`];
@@ -545,9 +544,22 @@ function renderDashboard() {
       if (allMastered) masteredLessons++;
       data.sessions.forEach(s => { bestWpm = Math.max(bestWpm, s.wpm); bestAcc = Math.max(bestAcc, s.accuracy); });
     });
-    rows.push(`<tr><td>${level.id}. ${level.title}</td><td>${masteredLessons}/${level.lessons.length}</td><td>${any ? bestWpm : '—'}</td><td>${any ? bestAcc + '%' : '—'}</td></tr>`);
-  });
-  table.innerHTML = rows.join('');
+    const pct = Math.round((masteredLessons / level.lessons.length) * 100);
+    const done = masteredLessons === level.lessons.length;
+    return `
+      <div class="level-card${done ? ' level-card-done' : ''}${any ? '' : ' level-card-untouched'}">
+        <div class="level-card-top">
+          <span class="level-card-num">${level.id}</span>
+          <span class="level-card-title">${level.title}</span>
+          ${done ? '<span class="level-card-crown" title="Fully mastered">👑</span>' : ''}
+        </div>
+        <div class="level-card-bar"><div style="width:${pct}%"></div></div>
+        <div class="level-card-stats">
+          <span>${masteredLessons}/${level.lessons.length} mastered</span>
+          <span>${any ? `${bestWpm} WPM · ${bestAcc}%` : 'Not started'}</span>
+        </div>
+      </div>`;
+  }).join('');
 
   const lifetime = loadLifetimeStats();
   document.getElementById('lifetimeSummary').textContent =

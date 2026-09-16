@@ -160,7 +160,16 @@ button, select, input[type="text"] {
   transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-select { cursor: pointer; }
+select {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) center, calc(100% - 11px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
 input[type="text"] { cursor: text; }
 
 button:hover {
@@ -206,10 +215,38 @@ main {
   box-shadow: var(--shadow-md);
   padding: 20px 22px;
   margin-bottom: 20px;
+  animation: card-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+main .card:nth-of-type(1) { animation-delay: 0.02s; }
+main .card:nth-of-type(2) { animation-delay: 0.06s; }
+main .card:nth-of-type(3) { animation-delay: 0.1s; }
+main .card:nth-of-type(4) { animation-delay: 0.14s; }
+main .card:nth-of-type(5) { animation-delay: 0.18s; }
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card { animation: none; }
 }
 
 /* ---------- Lesson info ---------- */
 
+.lesson-info {
+  position: relative;
+  overflow: hidden;
+  padding-left: 26px;
+}
+.lesson-info::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+}
 .lesson-info h2 { margin: 0 0 6px; font-size: 1.15rem; }
 .lesson-info p { margin: 0; color: var(--muted); font-size: 0.92rem; }
 
@@ -350,9 +387,19 @@ main {
 }
 
 .session-message {
+  display: inline-block;
   font-size: 1.5rem;
   font-weight: 800;
   color: var(--correct);
+  animation: session-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes session-pop {
+  0% { opacity: 0; transform: scale(0.85) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .session-message { animation: none; }
 }
 
 /* ========================================================================
@@ -559,23 +606,83 @@ main {
   font-size: 1.1rem;
 }
 
-.dashboard table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  font-size: 0.85rem;
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
 }
-.dashboard td, .dashboard th {
-  padding: 8px 10px;
-  text-align: left;
+
+.level-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  background: var(--bg);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.dashboard th {
+.level-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--accent);
+}
+.level-card-untouched { opacity: 0.6; }
+.level-card-done {
+  border-color: var(--correct);
+  background: color-mix(in srgb, var(--correct) 7%, var(--bg));
+}
+
+.level-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.level-card-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.level-card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.level-card-crown { margin-left: auto; font-size: 0.9rem; }
+
+.level-card-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.level-card-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--correct), #58c988);
+}
+
+.level-card-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.7rem;
   color: var(--muted);
   font-weight: 700;
-  border-bottom: 2px solid var(--border);
 }
-.dashboard tr:not(:first-child) td { border-top: 1px solid var(--border); }
-.dashboard tr:hover td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 
 .muted { color: var(--muted); font-size: 0.85rem; }
 
