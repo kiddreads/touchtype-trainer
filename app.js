@@ -6,7 +6,11 @@
 const SETTINGS_KEY = 'typealoud_settings_v1';
 const PROGRESS_KEY = 'typealoud_progress_v1';
 const LIFETIME_STATS_KEY = 'typealoud_lifetime_stats_v1';
-const KEY_STATS_KEY = 'typealoud_key_stats_v1';
+// v2: v1 double-counted every missed letter (a miss AND a success once it
+// was fixed), inflating per-key accuracy; that data can't be corrected
+// after the fact, so v2 starts clean and v1 is discarded on load.
+const KEY_STATS_KEY = 'typealoud_key_stats_v2';
+const LEGACY_KEY_STATS_KEYS = ['typealoud_key_stats_v1'];
 const AI_LESSONS_KEY = 'typealoud_ai_lessons_v1';
 
 const state = {
@@ -116,11 +120,24 @@ const MISTAKE_INFO = {
   other: { label: 'Other', tip: 'A key outside the practice layout.' }
 };
 
+// Shifted symbols live on the same physical key as their base character
+// (US layout). Without this, typing "1" for "!" was classified as "right
+// finger, wrong key" when it's really a missed Shift.
+const SHIFTED_TO_BASE = {
+  '!': '1', '@': '2', '#': '3', '$': '4', '%': '5', '^': '6', '&': '7', '*': '8',
+  '(': '9', ')': '0', '_': '-', '+': '=', '{': '[', '}': ']', ':': ';', '"': "'",
+  '<': ',', '>': '.', '?': '/', '~': '`', '|': '\\'
+};
+function physicalKeyOf(ch) {
+  const lower = ch.toLowerCase();
+  return SHIFTED_TO_BASE[lower] || lower;
+}
+
 function classifyMistake(expected, pressed) {
-  if (pressed.toLowerCase() === expected.toLowerCase()) return 'shift';
+  if (physicalKeyOf(pressed) === physicalKeyOf(expected)) return 'shift';
   if (expected === ' ' || pressed === ' ') return 'spacing';
-  const ef = FINGER_MAP[expected.toLowerCase()];
-  const pf = FINGER_MAP[pressed.toLowerCase()];
+  const ef = FINGER_MAP[physicalKeyOf(expected)];
+  const pf = FINGER_MAP[physicalKeyOf(pressed)];
   if (!ef || !pf) return 'other';
   if (ef === pf) return 'reach';
   return ef[0] === pf[0] ? 'finger' : 'hand';
@@ -647,6 +664,28 @@ function sessionAccuracy() {
   if (attempted === 0) return 100;
   return Math.round(((attempted - state.stats.missed) / attempted) * 100);
 }
+
+// How sure the accuracy number is. 95% Wilson score interval — the
+// standard interval for a success rate, well-behaved at small sample sizes
+// and near 100% (where the simpler "normal approximation" gives nonsense
+// like 98–102%). After 12 letters the true rate could plausibly be quite
+// different from what's shown; after 400 it's pinned down to a few points.
+function accuracyRange(successes, n) {
+  if (n === 0) return null;
+  const z = 1.96;
+  const p = successes / n;
+  const denom = 1 + (z * z) / n;
+  const center = (p + (z * z) / (2 * n)) / denom;
+  const margin = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / denom;
+  return [Math.max(0, Math.round((center - margin) * 100)), Math.min(100, Math.round((center + margin) * 100))];
+}
+function accuracyExplanation() {
+  const n = lettersAttempted();
+  if (n === 0) return 'First-try letter accuracy — starts once you type.';
+  const [lo, hi] = accuracyRange(n - state.stats.missed, n);
+  return `First-try letter accuracy over ${n} letter${n === 1 ? '' : 's'} (${state.stats.missed} missed). ` +
+    `With this many letters, your true accuracy is likely between ${lo}% and ${hi}%.`;
+}
 // Perfect words: every space-delimited word graded on its own the moment
 // it's finished — in drill lines and full sentences alike.
 function perfectWordRate() {
@@ -695,7 +734,8 @@ function finishSession() {
   if (!state.customLesson) saveSessionResult(state.levelId, state.lessonId, wpm, accuracy);
 
   const top = topSessionMistake();
-  const details = [`${state.stats.cleanWords}/${state.stats.wordsCompleted} words perfect`];
+  const lettersN = lettersAttempted();
+  const details = [`${lettersN - state.stats.missed}/${lettersN} letters right first try`, `${state.stats.cleanWords}/${state.stats.wordsCompleted} words perfect`];
   if (top) details.push(`most common slip: ${MISTAKE_INFO[top.type].label.toLowerCase()} (${top.count})`);
   document.getElementById('wordDisplay').innerHTML =
     `<span class="session-message">Lesson complete! ${wpm} WPM, ${accuracy}% accuracy 🎉</span>` +
@@ -714,6 +754,7 @@ function updateStatsUI() {
   const wpm = currentWpm();
   // Stats are always computed here; only the DOM section's visibility is toggled by settings.showLiveStats.
   document.getElementById('accuracyStat').textContent = `${accuracy}%`;
+  document.getElementById('accuracyStat').parentElement.title = accuracyExplanation();
   document.getElementById('wpmStat').textContent = `${wpm}`;
   document.getElementById('queueStat').textContent = `${state.queue.length + 1}`;
   document.getElementById('perfectWordsStat').textContent = `${state.stats.cleanWords}/${state.stats.wordsCompleted}`;
@@ -860,14 +901,48 @@ function renderMistakeTypes() {
       </div>`).join('');
 }
 
+// ---------- Caps Lock detection ----------
+
+function capsLockOn(e) {
+  return typeof e.getModifierState === 'function' && e.getModifierState('CapsLock');
+}
+function isLetter(ch) {
+  return ch.toLowerCase() !== ch.toUpperCase();
+}
+function updateCapsLockWarning(e) {
+  const el = document.getElementById('capsWarning');
+  if (el && typeof e.getModifierState === 'function') el.hidden = !e.getModifierState('CapsLock');
+}
+function flashCapsLockWarning() {
+  const el = document.getElementById('capsWarning');
+  if (!el) return;
+  el.hidden = false;
+  el.classList.remove('caps-warning-flash');
+  void el.offsetWidth; // restart the animation
+  el.classList.add('caps-warning-flash');
+}
+
 // ---------- Input handling ----------
+
+// Keystrokes that aren't a real attempt at a letter never reach scoring.
+// Each of these used to be counted and made accuracy measurably wrong.
+const CHATTER_MS = 30;          // one physical press registering twice
+const REFLEX_ADVANCE_MS = 300;  // a second reflex Space right after advancing
 
 function handleKeydown(e) {
   if (!state.active || !state.currentWord) return;
   const active = document.activeElement;
   if (active && (active.tagName === 'SELECT' || active.tagName === 'INPUT' && active.id !== 'typeCapture')) return;
+  updateCapsLockWarning(e);
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Shift' || e.key === 'Tab') return;
+
+  // Holding a key down fires auto-repeat keydowns. They aren't new
+  // keystrokes: previously a held key could log a string of misses, or a
+  // held Space/Enter could skip several lines at once.
+  if (e.repeat) { e.preventDefault(); return; }
+  // Mid-composition input (IME, dead-key accents) isn't a finished character.
+  if (e.isComposing || e.key === 'Process' || e.key === 'Dead') return;
 
   if (state.awaitingAdvance) {
     // Once a word/sentence is complete there's nothing left to type, so
@@ -875,7 +950,10 @@ function handleKeydown(e) {
     // it alongside Enter, since plenty of fast typists reflexively hit
     // Space between words out of habit.
     e.preventDefault();
-    if (e.key === 'Enter' || e.key === ' ') nextWord();
+    if (e.key === 'Enter' || e.key === ' ') {
+      state.advancedAt = Date.now();
+      nextWord();
+    }
     return;
   }
   if (e.key === 'Enter') { e.preventDefault(); return; }
@@ -883,13 +961,38 @@ function handleKeydown(e) {
   e.preventDefault();
 
   const expectedChar = state.currentWord[state.expectedIndex];
+  const now = Date.now();
+
+  if (e.key !== expectedChar) {
+    // A reflex double-tap of Space to move on shouldn't land as a miss on
+    // the first letter of the next line.
+    if (e.key === ' ' && state.advancedAt && now - state.advancedAt < REFLEX_ADVANCE_MS) return;
+    // Switch chatter: the same key registering again within a few ms of
+    // itself is one physical press, not a second (wrong) one. Correct
+    // presses are never discarded — only a would-be miss.
+    if (e.key === state.lastKey && now - state.lastKeyTime < CHATTER_MS) return;
+    // Caps Lock on turns every right letter into "wrong case." That's a
+    // setting, not a typing mistake — warn instead of scoring it.
+    if (capsLockOn(e) && isLetter(e.key) && e.key.toLowerCase() === expectedChar.toLowerCase()) {
+      flashCapsLockWarning();
+      return;
+    }
+  }
+  state.lastKey = e.key;
+  state.lastKeyTime = now;
+
   if (e.key === expectedChar) {
     if (!state.stats.firstKeystrokeTime) state.stats.firstKeystrokeTime = Date.now();
+    // A letter already recorded as a miss must not ALSO be recorded as a
+    // success when it's finally typed. It used to be both, so a key you
+    // missed every single time read as 50% in trouble keys / per-finger
+    // accuracy instead of 0%.
+    const alreadyRecordedAsMiss = state.currentCharErrored;
     state.expectedIndex++;
     state.stats.total++;
     state.stats.correct++;
     state.currentCharErrored = false;
-    recordKeyResult(expectedChar, true);
+    if (!alreadyRecordedAsMiss) recordKeyResult(expectedChar, true);
     tapFinger(e.key);
     if (state.expectedIndex >= state.currentWord.length) {
       renderWord();
@@ -1003,6 +1106,7 @@ function applySettingsToUI() {
 }
 
 function init() {
+  try { LEGACY_KEY_STATS_KEYS.forEach((k) => localStorage.removeItem(k)); } catch (e) { /* storage unavailable */ }
   loadSettings();
   buildKeyboard();
   computeHandLayout();

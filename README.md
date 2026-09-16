@@ -54,7 +54,13 @@ open-source web app.
   letter counts once, either right the first time or missed, and pressing
   the wrong key several times on one letter is still just one miss. It
   updates on every keystroke — dips the instant you slip, climbs back as you
-  keep going — and a mistake-free run reads exactly 100%. Alongside it,
+  keep going — and a mistake-free run reads exactly 100%. Things that
+  aren't real typing attempts are never scored: held-key auto-repeat,
+  keyboard switch chatter, a reflex double-tap of Space right after moving
+  on, and wrong-case letters while Caps Lock is on (a warning shows
+  instead). Hovering the accuracy stat shows how many letters it's based on
+  and the likely range of your true accuracy (95% Wilson interval), since
+  12 letters says far less than 400. Alongside it,
   **Perfect words** grades every word the moment you finish it (in drill
   lines and sentences alike).
 - **Accuracy insights** on the dashboard: *trouble keys* ranked by recent
