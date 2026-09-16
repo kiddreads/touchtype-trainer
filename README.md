@@ -43,6 +43,10 @@ open-source web app.
 - **Listen & Type mode** — hides the word and shows only audio + a dot
   outline that reveals letters as you type them correctly, for dictation-
   style practice once a lesson feels easy.
+- **Drilled repetition, TTRS-style** — a single word is typed 3-4 times in
+  a row on one line ("cat cat cat") instead of appearing once and moving
+  on, to actually build muscle memory. Multi-word phrases/sentences are
+  left as one line, not repeated.
 - **Adaptive repetition** — a word/sentence typed with a mistake is requeued
   a few items later in the same session; it only counts as "mastered" after
   two clean back-to-back passes, tracked across sessions.

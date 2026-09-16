@@ -335,8 +335,29 @@ function startCustomLesson(lessonMeta) {
   beginSession(lessonMeta.words, `AI Lesson: ${lessonMeta.title}`, 'Generated on this machine — not part of the core curriculum.');
 }
 
+// TTRS-style drilling: a single word gets typed 3-4 times in a row on one
+// line ("cat cat cat") before moving on, to actually build the muscle
+// memory rather than seeing each word once and moving on. Multi-word
+// phrases/sentences are left as-is — repeating a whole sentence 3-4 times
+// would make the line unreasonably long.
+function repeatedLineFor(word) {
+  if (word.includes(' ')) return word;
+  const reps = 3 + Math.floor(Math.random() * 2); // 3 or 4
+  return Array(reps).fill(word).join(' ');
+}
+
+// Recovers the original curriculum word from a drilled line ("cat cat cat"
+// -> "cat") so mastery/progress tracking stays keyed by the same words
+// LEVELS actually lists — the dashboard's mastery check compares against
+// lesson.words directly. A genuine multi-word phrase/sentence (parts
+// aren't all identical) is returned unchanged, matching prior behavior.
+function baseWordOf(line) {
+  const parts = line.split(' ');
+  return parts.length > 1 && parts.every(p => p === parts[0]) ? parts[0] : line;
+}
+
 function beginSession(words, titleText, descText) {
-  state.queue = shuffle(words);
+  state.queue = shuffle(words).map(repeatedLineFor);
   state.wordMisses = {};
   state.stats = { correct: 0, total: 0, startTime: Date.now(), wordsCompleted: 0, cleanWords: 0, totalWords: words.length };
   state.active = true;
@@ -429,7 +450,7 @@ function completeWord() {
       retiredAfterMisses = true;
     }
   }
-  if (!state.customLesson) recordWordResult(word, clean);
+  if (!state.customLesson) recordWordResult(baseWordOf(word), clean);
   // Wait for the learner to press Enter instead of auto-advancing — gives
   // them a moment to see the result rather than getting swept into the
   // next word/sentence. Space isn't used for this since many items
