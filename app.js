@@ -6,6 +6,7 @@
 const SETTINGS_KEY = 'typealoud_settings_v1';
 const PROGRESS_KEY = 'typealoud_progress_v1';
 const LIFETIME_STATS_KEY = 'typealoud_lifetime_stats_v1';
+const KEY_STATS_KEY = 'typealoud_key_stats_v1';
 const AI_LESSONS_KEY = 'typealoud_ai_lessons_v1';
 
 const state = {
@@ -50,6 +51,49 @@ function loadLifetimeStats() {
 }
 function saveLifetimeStats(s) {
   try { localStorage.setItem(LIFETIME_STATS_KEY, JSON.stringify(s)); } catch (e) { /* storage unavailable */ }
+}
+
+// ---------- Per-key accuracy engine ----------
+// Session/word-level accuracy (wordAccuracy(), above the fold in the
+// original design) stays the fairness-first primary score. This is a
+// separate, additive layer: lifetime attempts/errors per physical
+// character, persisted immediately on every keystroke (not batched at
+// session end) so it survives a crashed tab or a closed browser mid-word.
+function loadKeyStats() {
+  try { return JSON.parse(localStorage.getItem(KEY_STATS_KEY) || '{}'); } catch (e) { return {}; }
+}
+function saveKeyStats(s) {
+  try { localStorage.setItem(KEY_STATS_KEY, JSON.stringify(s)); } catch (e) { /* storage unavailable */ }
+}
+function recordKeyResult(char, correct) {
+  const key = char.toLowerCase();
+  const stats = loadKeyStats();
+  const entry = stats[key] || { attempts: 0, errors: 0 };
+  entry.attempts++;
+  if (!correct) entry.errors++;
+  stats[key] = entry;
+  saveKeyStats(stats);
+}
+
+// Laplace-smoothed accuracy: (attempts - errors + 1) / (attempts + 2).
+// A raw ratio is overconfident on small samples — 1 attempt, 1 error
+// reads as a stark "0% accuracy," and 1 attempt, 0 errors reads as a
+// too-confident "100%." Smoothing pulls small samples toward 50% until
+// there's enough evidence either way, which is the standard fix for
+// exactly this problem (it's a Beta(1,1) posterior mean, if you want the
+// formal name) rather than trusting a couple of keystrokes at face value.
+function smoothedKeyAccuracy(entry) {
+  return Math.round(((entry.attempts - entry.errors + 1) / (entry.attempts + 2)) * 100);
+}
+
+// Weakest keys with enough attempts to be meaningful, worst first.
+function troubleKeys(minAttempts = 5, n = 6) {
+  const stats = loadKeyStats();
+  return Object.keys(stats)
+    .map((char) => ({ char, ...stats[char], accuracy: smoothedKeyAccuracy(stats[char]) }))
+    .filter((k) => k.attempts >= minAttempts && k.char !== ' ') // space isn't a "key to learn"
+    .sort((a, b) => a.accuracy - b.accuracy)
+    .slice(0, n);
 }
 function loadAiLessons() {
   try { return JSON.parse(localStorage.getItem(AI_LESSONS_KEY) || '[]'); } catch (e) { return []; }
@@ -404,6 +448,11 @@ function nextWord() {
   state.expectedIndex = 0;
   state.currentWordHadError = false;
   state.currentCharErrored = false;
+  // Per-repetition accuracy bookkeeping for drilled lines ("cat cat cat
+  // cat") — see completeWord(). A mistake on one repetition shouldn't
+  // zero out the other three; each repetition is graded on its own.
+  state.segmentHadError = false;
+  state.segmentResults = [];
   state.awaitingAdvance = false;
   document.getElementById('advanceHint').hidden = true;
   renderWord();
@@ -452,9 +501,27 @@ function shakeCurrentChar() {
 
 function completeWord() {
   const word = state.currentWord;
-  state.stats.wordsCompleted++;
   const clean = !state.currentWordHadError;
-  if (clean) state.stats.cleanWords++;
+
+  if (isDrilledRepeat(word)) {
+    // Grade each repetition of a drilled line on its own instead of the
+    // whole line as one unit — a slip on one "cat" out of four shouldn't
+    // zero out the other three that were typed perfectly. segmentResults
+    // already holds every repetition completed so far (pushed at each
+    // space crossing); push the final repetition's result now.
+    state.segmentResults.push(!state.segmentHadError);
+    state.stats.wordsCompleted += state.segmentResults.length;
+    state.stats.cleanWords += state.segmentResults.filter(Boolean).length;
+  } else {
+    // Sentences/phrases stay graded as one whole unit — that was already
+    // fair and wasn't what broke.
+    state.stats.wordsCompleted++;
+    if (clean) state.stats.cleanWords++;
+  }
+
+  // Mastery/retry still require the WHOLE line clean (all repetitions
+  // perfect) — a stricter bar than the accuracy score above, and
+  // deliberately so; it's what "mastered" should mean.
   let retiredAfterMisses = false;
   if (!clean) {
     state.wordMisses[word] = (state.wordMisses[word] || 0) + 1;
@@ -626,6 +693,23 @@ function renderDashboard() {
     lifetime.totalSessions > 0
       ? `Lifetime: ${lifetime.totalSessions} sessions, best ${lifetime.bestWpmEver} WPM, best ${lifetime.bestAccuracyEver}% accuracy, ${Math.round(lifetime.totalTimeMs / 60000)} min practiced.`
       : 'No sessions recorded yet.';
+
+  renderTroubleKeys();
+}
+
+function renderTroubleKeys() {
+  const panel = document.getElementById('troubleKeys');
+  if (!panel) return;
+  const weak = troubleKeys();
+  if (weak.length === 0) {
+    panel.innerHTML = '<p class="muted">Keep practicing — once you\'ve pressed a key a few times, this shows which ones need the most work.</p>';
+    return;
+  }
+  panel.innerHTML = weak.map((k) => {
+    const label = k.char === ',' ? 'comma' : k.char === '.' ? 'period' : k.char === ';' ? 'semicolon'
+      : k.char === "'" ? 'apostrophe' : k.char === '"' ? 'quote' : k.char;
+    return `<span class="trouble-key" title="${k.attempts} attempts"><b>${label}</b>${k.accuracy}%</span>`;
+  }).join('');
 }
 
 // ---------- Input handling ----------
@@ -657,6 +741,7 @@ function handleKeydown(e) {
     state.stats.total++;
     state.stats.correct++;
     state.currentCharErrored = false;
+    recordKeyResult(expectedChar, true);
     tapFinger(e.key);
     if (state.expectedIndex >= state.currentWord.length) {
       renderWord();
@@ -664,19 +749,29 @@ function handleKeydown(e) {
     } else {
       renderWord();
       highlightKey(state.currentWord[state.expectedIndex]);
-      // A space just completed one repetition of a drilled word — announce
-      // it again for the next one, instead of only speaking it once at the
-      // very start of the whole line.
-      if (expectedChar === ' ' && isDrilledRepeat(state.currentWord)) speakCurrentSegment();
+      if (expectedChar === ' ' && isDrilledRepeat(state.currentWord)) {
+        // A space just completed one repetition of a drilled word — grade
+        // that repetition on its own (see completeWord()) and announce the
+        // word again for the next one, instead of only speaking it once at
+        // the very start of the whole line.
+        state.segmentResults.push(!state.segmentHadError);
+        state.segmentHadError = false;
+        speakCurrentSegment();
+      }
     }
   } else {
     // Only the first wrong press on a given letter counts — mashing the
     // same wrong key five times while distracted counts as one mistake,
-    // not five.
+    // not five. The error is recorded against expectedChar (the key that
+    // was supposed to be pressed), not e.key (whatever was actually
+    // mashed) — "trouble keys" means keys you fail to hit when they're
+    // the target, not keys you accidentally hit instead.
     if (!state.currentCharErrored) {
       state.stats.total++;
       state.currentCharErrored = true;
+      recordKeyResult(expectedChar, false);
     }
+    state.segmentHadError = true;
     state.currentWordHadError = true;
     flashErrorKey(e.key);
     shakeCurrentChar();

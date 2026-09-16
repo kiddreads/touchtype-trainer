@@ -613,6 +613,36 @@ main .card:nth-of-type(5) { animation-delay: 0.18s; }
   font-size: 1.1rem;
 }
 
+.trouble-keys-title {
+  margin: 20px 0 4px;
+  font-size: 0.95rem;
+}
+
+.trouble-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.trouble-key {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  background: color-mix(in srgb, var(--error) 10%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--error) 30%, var(--border));
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.trouble-key b {
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .level-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
