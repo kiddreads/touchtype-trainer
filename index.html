@@ -56,9 +56,14 @@
       <span class="stat-label">WPM</span>
       <b id="wpmStat">0</b>
     </div>
+    <div class="stat-chip" title="Words typed with no mistakes, out of words finished">
+      <span class="stat-icon">✨</span>
+      <span class="stat-label">Perfect words</span>
+      <b id="perfectWordsStat">0/0</b>
+    </div>
     <div class="stat-chip">
       <span class="stat-icon">📋</span>
-      <span class="stat-label">Words left</span>
+      <span class="stat-label">Lines left</span>
       <b id="queueStat">0</b>
     </div>
   </section>
@@ -114,8 +119,20 @@
     <h2 class="dashboard-title">📈 Your progress</h2>
     <p class="muted" id="lifetimeSummary"></p>
     <div id="dashboardTable" class="level-grid"></div>
-    <h3 class="trouble-keys-title">🎯 Trouble keys</h3>
-    <div id="troubleKeys" class="trouble-keys"></div>
+    <div class="insights-grid">
+      <div class="insight">
+        <h3 class="trouble-keys-title">🎯 Trouble keys <span class="insight-sub">recent accuracy</span></h3>
+        <div id="troubleKeys" class="trouble-keys"></div>
+      </div>
+      <div class="insight">
+        <h3 class="trouble-keys-title">🖐️ Accuracy by finger</h3>
+        <div id="fingerAccuracy" class="finger-acc"></div>
+      </div>
+      <div class="insight insight-wide">
+        <h3 class="trouble-keys-title">🔍 Kinds of mistakes</h3>
+        <div id="mistakeTypes" class="mistake-types"></div>
+      </div>
+    </div>
     <button id="resetProgressBtn">Reset all progress</button>
   </section>
 </main>

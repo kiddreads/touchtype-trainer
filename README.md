@@ -50,10 +50,21 @@ open-source web app.
 - **Adaptive repetition** — a word/sentence typed with a mistake is requeued
   a few items later in the same session; it only counts as "mastered" after
   two clean back-to-back passes, tracked across sessions.
-- **Fair, completion-based scoring** — accuracy is *clean words ÷ words
-  attempted*, not a raw keystroke ratio, so getting stuck on one letter and
-  pressing the wrong key several times before noticing only costs you that
-  one word, not five separate strikes against you. It does not auto-advance
+- **Fair, live accuracy** — accuracy is *first-try letter accuracy*: each
+  letter counts once, either right the first time or missed, and pressing
+  the wrong key several times on one letter is still just one miss. It
+  updates on every keystroke — dips the instant you slip, climbs back as you
+  keep going — and a mistake-free run reads exactly 100%. Alongside it,
+  **Perfect words** grades every word the moment you finish it (in drill
+  lines and sentences alike).
+- **Accuracy insights** on the dashboard: *trouble keys* ranked by recent
+  accuracy (so keys you've improved on drop off, with ▲/▼ trend markers),
+  *accuracy by finger* in each finger's own color, and *kinds of mistakes* —
+  every slip is classified as a Shift slip, right finger/wrong key, wrong
+  finger, wrong hand, or space slip, with a tip for each. Per-key and
+  per-finger figures are smoothed toward a typical 95% so a couple of
+  presses on a new key can't read as a misleading 0% or 100%.
+- **Manual advance** — it does not auto-advance
   to the next word/sentence — a fast typist's reflex tap of Space or Enter
   right after finishing a word would otherwise register as a wrong
   keystroke against whatever came next. You advance explicitly with

@@ -54,44 +54,135 @@ function saveLifetimeStats(s) {
 }
 
 // ---------- Per-key accuracy engine ----------
-// Session/word-level accuracy (wordAccuracy(), above the fold in the
-// original design) stays the fairness-first primary score. This is a
-// separate, additive layer: lifetime attempts/errors per physical
-// character, persisted immediately on every keystroke (not batched at
-// session end) so it survives a crashed tab or a closed browser mid-word.
+// Lifetime layer, separate from the live session score (sessionAccuracy()):
+// attempts/errors per physical key, persisted immediately on every
+// keystroke (not batched at session end) so it survives a crashed tab or a
+// closed browser mid-word.
 function loadKeyStats() {
   try { return JSON.parse(localStorage.getItem(KEY_STATS_KEY) || '{}'); } catch (e) { return {}; }
 }
 function saveKeyStats(s) {
   try { localStorage.setItem(KEY_STATS_KEY, JSON.stringify(s)); } catch (e) { /* storage unavailable */ }
 }
+// Recency weighting: each key also keeps an exponentially-weighted error
+// rate so improvement shows up — a key you struggled with a month ago but
+// now hit reliably shouldn't sit on the trouble list forever on the
+// strength of old mistakes. Bias-corrected (errEwma / w) so a key with only
+// a few attempts isn't dragged toward 0 by the EWMA's zero starting value.
+const RECENCY_ALPHA = 0.1; // roughly "the last ~10 presses of this key"
+
+function ensureRecency(entry) {
+  if (entry.w === undefined) {
+    // Seed older entries (recorded before recency tracking existed) from
+    // their lifetime counts, as if those attempts had been spread evenly.
+    entry.w = 1 - Math.pow(1 - RECENCY_ALPHA, entry.attempts);
+    entry.errEwma = entry.attempts > 0 ? entry.w * (entry.errors / entry.attempts) : 0;
+  }
+  return entry;
+}
+
 function recordKeyResult(char, correct) {
   const key = char.toLowerCase();
   const stats = loadKeyStats();
-  const entry = stats[key] || { attempts: 0, errors: 0 };
+  const entry = ensureRecency(stats[key] || { attempts: 0, errors: 0 });
   entry.attempts++;
   if (!correct) entry.errors++;
+  entry.errEwma = entry.errEwma * (1 - RECENCY_ALPHA) + (correct ? 0 : RECENCY_ALPHA);
+  entry.w = entry.w * (1 - RECENCY_ALPHA) + RECENCY_ALPHA;
   stats[key] = entry;
   saveKeyStats(stats);
 }
 
-// Laplace-smoothed accuracy: (attempts - errors + 1) / (attempts + 2).
-// A raw ratio is overconfident on small samples — 1 attempt, 1 error
-// reads as a stark "0% accuracy," and 1 attempt, 0 errors reads as a
-// too-confident "100%." Smoothing pulls small samples toward 50% until
-// there's enough evidence either way, which is the standard fix for
-// exactly this problem (it's a Beta(1,1) posterior mean, if you want the
-// formal name) rather than trusting a couple of keystrokes at face value.
-function smoothedKeyAccuracy(entry) {
-  return Math.round(((entry.attempts - entry.errors + 1) / (entry.attempts + 2)) * 100);
+// Recent accuracy: the EWMA converted back into "effective keystrokes"
+// (weight / alpha) so the same 95% prior applies on the same scale as the
+// lifetime figure.
+function recentKeyAccuracy(entry) {
+  const e = ensureRecency({ ...entry });
+  const effectiveTotal = e.w / RECENCY_ALPHA;
+  const effectiveErrors = e.errEwma / RECENCY_ALPHA;
+  return shrunkAccuracy(effectiveTotal - effectiveErrors, effectiveTotal);
 }
 
-// Weakest keys with enough attempts to be meaningful, worst first.
+// ---------- Mistake classification ----------
+// A wrong key says more than "wrong": which finger/hand you used instead
+// is the real touch-typing lesson. Classified from FINGER_MAP.
+const MISTAKE_TYPES_KEY = 'typealoud_mistake_types_v1';
+const MISTAKE_INFO = {
+  shift: { label: 'Shift slips', tip: 'Right key, wrong case — hold Shift with the pinky on the opposite hand.' },
+  reach: { label: 'Right finger, wrong key', tip: 'Correct finger, missed the reach — practice moving out from home row and back.' },
+  finger: { label: 'Wrong finger', tip: 'Same hand, different finger — watch which finger lights up on the hand guide.' },
+  hand: { label: 'Wrong hand', tip: 'Used the other hand — keep each hand on its own half of the keyboard.' },
+  spacing: { label: 'Space slips', tip: 'Space pressed too early or too late — finish the word before your thumb goes down.' },
+  other: { label: 'Other', tip: 'A key outside the practice layout.' }
+};
+
+function classifyMistake(expected, pressed) {
+  if (pressed.toLowerCase() === expected.toLowerCase()) return 'shift';
+  if (expected === ' ' || pressed === ' ') return 'spacing';
+  const ef = FINGER_MAP[expected.toLowerCase()];
+  const pf = FINGER_MAP[pressed.toLowerCase()];
+  if (!ef || !pf) return 'other';
+  if (ef === pf) return 'reach';
+  return ef[0] === pf[0] ? 'finger' : 'hand';
+}
+
+function loadMistakeTypes() {
+  try { return JSON.parse(localStorage.getItem(MISTAKE_TYPES_KEY) || '{}'); } catch (e) { return {}; }
+}
+function recordMistakeType(type) {
+  const counts = loadMistakeTypes();
+  counts[type] = (counts[type] || 0) + 1;
+  try { localStorage.setItem(MISTAKE_TYPES_KEY, JSON.stringify(counts)); } catch (e) { /* storage unavailable */ }
+  state.stats.mistakeTypes[type] = (state.stats.mistakeTypes[type] || 0) + 1;
+}
+
+// Lifetime accuracy per finger, aggregated from per-key stats.
+function fingerAccuracies() {
+  const stats = loadKeyStats();
+  const totals = {};
+  Object.keys(stats).forEach((char) => {
+    const finger = FINGER_MAP[char];
+    if (!finger) return;
+    totals[finger] = totals[finger] || { attempts: 0, errors: 0 };
+    totals[finger].attempts += stats[char].attempts;
+    totals[finger].errors += stats[char].errors;
+  });
+  return Object.keys(FINGER_LABELS).map((finger) => {
+    const t = totals[finger] || { attempts: 0, errors: 0 };
+    return { finger, label: FINGER_LABELS[finger], attempts: t.attempts, accuracy: t.attempts ? smoothedKeyAccuracy(t) : null };
+  });
+}
+
+// Per-key/per-finger accuracy is shrunk toward a typical typing accuracy
+// (95%) with the weight of two keystrokes: (correct + 2*0.95) / (n + 2).
+// A raw ratio is overconfident on small samples — 1 attempt, 1 error reads
+// as a stark "0%" — while smoothing toward 50% (plain Laplace) is far too
+// pessimistic for typing, where a key hit perfectly 10 times would still
+// read ~92%. This is a Beta prior centered on realistic accuracy; it
+// washes out after a few dozen presses. Session accuracy is NOT smoothed —
+// a session with zero mistakes should read exactly 100%.
+const PRIOR_MEAN = 0.95;
+const PRIOR_WEIGHT = 2;
+function shrunkAccuracy(correct, total) {
+  return Math.round(((correct + PRIOR_WEIGHT * PRIOR_MEAN) / (total + PRIOR_WEIGHT)) * 100);
+}
+function smoothedKeyAccuracy(entry) {
+  return shrunkAccuracy(entry.attempts - entry.errors, entry.attempts);
+}
+
+// Weakest keys with enough attempts to be meaningful, worst first — ranked
+// by RECENT accuracy so keys you've since improved on fall off the list.
+// Only keys recently below 95% count as "trouble."
 function troubleKeys(minAttempts = 5, n = 6) {
   const stats = loadKeyStats();
   return Object.keys(stats)
-    .map((char) => ({ char, ...stats[char], accuracy: smoothedKeyAccuracy(stats[char]) }))
-    .filter((k) => k.attempts >= minAttempts && k.char !== ' ') // space isn't a "key to learn"
+    .map((char) => {
+      const recent = recentKeyAccuracy(stats[char]);
+      const lifetime = smoothedKeyAccuracy(stats[char]);
+      const trend = recent - lifetime >= 5 ? 'up' : lifetime - recent >= 5 ? 'down' : 'flat';
+      return { char, ...stats[char], accuracy: recent, lifetime, trend };
+    })
+    .filter((k) => k.attempts >= minAttempts && k.char !== ' ' && k.accuracy < 95) // space isn't a "key to learn"
     .sort((a, b) => a.accuracy - b.accuracy)
     .slice(0, n);
 }
@@ -421,7 +512,7 @@ function baseWordOf(line) {
 function beginSession(words, titleText, descText) {
   state.queue = shuffle(words).map(repeatedLineFor);
   state.wordMisses = {};
-  state.stats = { correct: 0, total: 0, startTime: Date.now(), wordsCompleted: 0, cleanWords: 0, totalWords: words.length };
+  state.stats = { correct: 0, total: 0, missed: 0, startTime: Date.now(), wordsCompleted: 0, cleanWords: 0, itemsCompleted: 0, totalWords: words.length, mistakeTypes: {} };
   state.active = true;
   document.getElementById('lessonTitle').textContent = titleText;
   document.getElementById('lessonDesc').textContent = descText;
@@ -448,11 +539,9 @@ function nextWord() {
   state.expectedIndex = 0;
   state.currentWordHadError = false;
   state.currentCharErrored = false;
-  // Per-repetition accuracy bookkeeping for drilled lines ("cat cat cat
-  // cat") — see completeWord(). A mistake on one repetition shouldn't
-  // zero out the other three; each repetition is graded on its own.
+  // Whether the word currently being typed (the space-delimited segment,
+  // not the whole line) has had a mistake yet — see gradeCurrentWord().
   state.segmentHadError = false;
-  state.segmentResults = [];
   state.awaitingAdvance = false;
   document.getElementById('advanceHint').hidden = true;
   renderWord();
@@ -503,25 +592,12 @@ function completeWord() {
   const word = state.currentWord;
   const clean = !state.currentWordHadError;
 
-  if (isDrilledRepeat(word)) {
-    // Grade each repetition of a drilled line on its own instead of the
-    // whole line as one unit — a slip on one "cat" out of four shouldn't
-    // zero out the other three that were typed perfectly. segmentResults
-    // already holds every repetition completed so far (pushed at each
-    // space crossing); push the final repetition's result now.
-    state.segmentResults.push(!state.segmentHadError);
-    state.stats.wordsCompleted += state.segmentResults.length;
-    state.stats.cleanWords += state.segmentResults.filter(Boolean).length;
-  } else {
-    // Sentences/phrases stay graded as one whole unit — that was already
-    // fair and wasn't what broke.
-    state.stats.wordsCompleted++;
-    if (clean) state.stats.cleanWords++;
-  }
+  gradeCurrentWord(); // the last word on the line (earlier ones were graded at each space)
+  state.stats.itemsCompleted++;
 
-  // Mastery/retry still require the WHOLE line clean (all repetitions
-  // perfect) — a stricter bar than the accuracy score above, and
-  // deliberately so; it's what "mastered" should mean.
+  // Mastery/retry still require the WHOLE line clean (every word perfect)
+  // — a stricter bar than the accuracy scores, and deliberately so; it's
+  // what "mastered" should mean.
   let retiredAfterMisses = false;
   if (!clean) {
     state.wordMisses[word] = (state.wordMisses[word] || 0) + 1;
@@ -548,18 +624,49 @@ function completeWord() {
   hint.hidden = false;
 }
 
-// The live/recorded "accuracy" is completion-based (clean words ÷ words
-// attempted), like TTRS describes its own scoring ("based on completion
-// rates and accuracy, not speed"). A raw keystroke ratio would let one
-// missed letter you mash at repeatedly tank the whole session and never
-// recover — completion-based accuracy only costs you that one word.
-function wordAccuracy() {
+// ---------- Session accuracy engine ----------
+// Primary score: first-try letter accuracy. Every letter position counts
+// exactly once — either typed right the first time, or missed. Mashing
+// wrong keys on one letter is still a single miss (never five), and it
+// updates on every keystroke: it dips the moment you slip and climbs back
+// as you keep typing correctly.
+//
+// The old primary score was word-level (clean words / words), which made
+// one slip cost an entire word — 4 slips across a short drill could read
+// ~45% even with nearly every letter right. Word-level grading still
+// exists as "Perfect words", every word graded as you finish it.
+//
+// A letter that's currently being retried after a miss counts as attempted
+// right away, so the score reflects a mistake the instant it happens
+// instead of waiting for the letter to be completed.
+function lettersAttempted() {
+  return state.stats.correct + (state.currentCharErrored ? 1 : 0);
+}
+function sessionAccuracy() {
+  const attempted = lettersAttempted();
+  if (attempted === 0) return 100;
+  return Math.round(((attempted - state.stats.missed) / attempted) * 100);
+}
+// Perfect words: every space-delimited word graded on its own the moment
+// it's finished — in drill lines and full sentences alike.
+function perfectWordRate() {
   return state.stats.wordsCompleted > 0
     ? Math.round((state.stats.cleanWords / state.stats.wordsCompleted) * 100)
     : 100;
 }
+function gradeCurrentWord() {
+  state.stats.wordsCompleted++;
+  if (!state.segmentHadError) state.stats.cleanWords++;
+  state.segmentHadError = false;
+}
 function rawKeystrokeAccuracy() {
   return state.stats.total > 0 ? Math.round((state.stats.correct / state.stats.total) * 100) : 100;
+}
+function topSessionMistake() {
+  const entries = Object.entries(state.stats.mistakeTypes);
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => b[1] - a[1]);
+  return { type: entries[0][0], count: entries[0][1] };
 }
 
 // Industry-standard WPM: one "word" = 5 characters, not a literal word —
@@ -581,20 +688,19 @@ function currentWpm() {
 
 function finishSession() {
   const wpm = currentWpm();
-  const accuracy = wordAccuracy();
+  const accuracy = sessionAccuracy();
 
   // Recorded unconditionally, regardless of whether live stats are shown.
   recordLifetimeSession({ wpm, accuracy, rawAccuracy: rawKeystrokeAccuracy(), durationMs: Date.now() - state.stats.startTime, wordsCompleted: state.stats.wordsCompleted });
   if (!state.customLesson) saveSessionResult(state.levelId, state.lessonId, wpm, accuracy);
 
-  // rawAccuracy (keystroke-level precision) was already tracked for
-  // "future reference" but never actually shown anywhere — surfaced here
-  // as a secondary detail so a learner who wants the fuller picture gets
-  // it, without changing what's actually optimized for (word completion).
-  const rawAcc = rawKeystrokeAccuracy();
+  const top = topSessionMistake();
+  const details = [`${state.stats.cleanWords}/${state.stats.wordsCompleted} words perfect`];
+  if (top) details.push(`most common slip: ${MISTAKE_INFO[top.type].label.toLowerCase()} (${top.count})`);
   document.getElementById('wordDisplay').innerHTML =
     `<span class="session-message">Lesson complete! ${wpm} WPM, ${accuracy}% accuracy 🎉</span>` +
-    `<div class="session-detail">${rawAcc}% keystroke precision</div>`;
+    `<div class="session-detail">${details.join(' · ')}</div>` +
+    (top ? `<div class="session-detail session-tip">Tip: ${MISTAKE_INFO[top.type].tip}</div>` : '');
   document.getElementById('listenHint').hidden = true;
   highlightKey(undefined);
   state.active = false;
@@ -604,14 +710,15 @@ function finishSession() {
 }
 
 function updateStatsUI() {
-  const accuracy = wordAccuracy();
+  const accuracy = sessionAccuracy();
   const wpm = currentWpm();
   // Stats are always computed here; only the DOM section's visibility is toggled by settings.showLiveStats.
   document.getElementById('accuracyStat').textContent = `${accuracy}%`;
   document.getElementById('wpmStat').textContent = `${wpm}`;
   document.getElementById('queueStat').textContent = `${state.queue.length + 1}`;
+  document.getElementById('perfectWordsStat').textContent = `${state.stats.cleanWords}/${state.stats.wordsCompleted}`;
   if (state.stats.totalWords) {
-    const pct = Math.round((state.stats.wordsCompleted / state.stats.totalWords) * 100);
+    const pct = Math.min(100, Math.round((state.stats.itemsCompleted / state.stats.totalWords) * 100));
     document.getElementById('progressFill').style.width = `${pct}%`;
   }
 }
@@ -695,21 +802,62 @@ function renderDashboard() {
       : 'No sessions recorded yet.';
 
   renderTroubleKeys();
+  renderFingerAccuracy();
+  renderMistakeTypes();
 }
 
 function renderTroubleKeys() {
   const panel = document.getElementById('troubleKeys');
   if (!panel) return;
   const weak = troubleKeys();
+  const anyStats = Object.keys(loadKeyStats()).length > 0;
   if (weak.length === 0) {
-    panel.innerHTML = '<p class="muted">Keep practicing — once you\'ve pressed a key a few times, this shows which ones need the most work.</p>';
+    panel.innerHTML = anyStats
+      ? '<p class="muted">No trouble keys right now — every key you\'ve practiced is 95%+ recently. 🎉</p>'
+      : '<p class="muted">Keep practicing — once you\'ve pressed a key a few times, this shows which ones need the most work.</p>';
     return;
   }
   panel.innerHTML = weak.map((k) => {
     const label = k.char === ',' ? 'comma' : k.char === '.' ? 'period' : k.char === ';' ? 'semicolon'
       : k.char === "'" ? 'apostrophe' : k.char === '"' ? 'quote' : k.char;
-    return `<span class="trouble-key" title="${k.attempts} attempts"><b>${label}</b>${k.accuracy}%</span>`;
+    const trend = k.trend === 'up' ? '<span class="trend trend-up" title="Improving recently">▲</span>'
+      : k.trend === 'down' ? '<span class="trend trend-down" title="Slipping recently">▼</span>' : '';
+    return `<span class="trouble-key" title="Recent ${k.accuracy}% · lifetime ${k.lifetime}% · ${k.attempts} presses"><b>${label}</b>${k.accuracy}%${trend}</span>`;
   }).join('');
+}
+
+function renderFingerAccuracy() {
+  const panel = document.getElementById('fingerAccuracy');
+  if (!panel) return;
+  const rows = fingerAccuracies();
+  if (rows.every((r) => r.attempts === 0)) {
+    panel.innerHTML = '<p class="muted">Accuracy per finger shows up here once you start typing.</p>';
+    return;
+  }
+  panel.innerHTML = rows.map((r) => `
+    <div class="finger-acc-row" title="${r.attempts} presses">
+      <span class="finger-acc-label"><span class="legend-swatch" style="background: var(--f-${r.finger})"></span>${r.label}</span>
+      <span class="finger-acc-bar"><span style="width:${r.accuracy ?? 0}%; background: var(--f-${r.finger})"></span></span>
+      <span class="finger-acc-value">${r.accuracy === null ? '—' : r.accuracy + '%'}</span>
+    </div>`).join('');
+}
+
+function renderMistakeTypes() {
+  const panel = document.getElementById('mistakeTypes');
+  if (!panel) return;
+  const counts = loadMistakeTypes();
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  if (total === 0) {
+    panel.innerHTML = '<p class="muted">No mistakes recorded yet. When you slip, this breaks down what kind of slip it was.</p>';
+    return;
+  }
+  panel.innerHTML = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, count]) => `
+      <div class="mistake-row">
+        <div class="mistake-head"><b>${MISTAKE_INFO[type].label}</b><span>${count} · ${Math.round((count / total) * 100)}%</span></div>
+        <div class="mistake-tip">${MISTAKE_INFO[type].tip}</div>
+      </div>`).join('');
 }
 
 // ---------- Input handling ----------
@@ -749,14 +897,12 @@ function handleKeydown(e) {
     } else {
       renderWord();
       highlightKey(state.currentWord[state.expectedIndex]);
-      if (expectedChar === ' ' && isDrilledRepeat(state.currentWord)) {
-        // A space just completed one repetition of a drilled word — grade
-        // that repetition on its own (see completeWord()) and announce the
-        // word again for the next one, instead of only speaking it once at
-        // the very start of the whole line.
-        state.segmentResults.push(!state.segmentHadError);
-        state.segmentHadError = false;
-        speakCurrentSegment();
+      if (expectedChar === ' ') {
+        // A space just finished a word — grade it now, so the score moves
+        // word by word instead of waiting for the whole line. In a drilled
+        // line, also announce the word again for the next repetition.
+        gradeCurrentWord();
+        if (isDrilledRepeat(state.currentWord)) speakCurrentSegment();
       }
     }
   } else {
@@ -768,8 +914,10 @@ function handleKeydown(e) {
     // the target, not keys you accidentally hit instead.
     if (!state.currentCharErrored) {
       state.stats.total++;
+      state.stats.missed++;
       state.currentCharErrored = true;
       recordKeyResult(expectedChar, false);
+      recordMistakeType(classifyMistake(expectedChar, e.key));
     }
     state.segmentHadError = true;
     state.currentWordHadError = true;
@@ -926,6 +1074,8 @@ function init() {
     if (confirm('Clear all saved progress and lifetime stats on this device?')) {
       localStorage.removeItem(PROGRESS_KEY);
       localStorage.removeItem(LIFETIME_STATS_KEY);
+      localStorage.removeItem(KEY_STATS_KEY);
+      localStorage.removeItem(MISTAKE_TYPES_KEY);
       renderDashboard();
     }
   });

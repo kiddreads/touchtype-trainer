@@ -614,9 +614,71 @@ main .card:nth-of-type(5) { animation-delay: 0.18s; }
 }
 
 .trouble-keys-title {
-  margin: 20px 0 4px;
+  margin: 0 0 4px;
   font-size: 0.95rem;
 }
+
+.insight-sub {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 20px 0 16px;
+}
+
+.insight {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  background: var(--bg);
+}
+.insight-wide { grid-column: 1 / -1; }
+
+.trend { margin-left: 2px; font-size: 0.7rem; }
+.trend-up { color: var(--correct); }
+.trend-down { color: var(--error); }
+
+.finger-acc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.finger-acc-row {
+  display: grid;
+  grid-template-columns: 112px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+}
+.finger-acc-label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 700; }
+.finger-acc-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.finger-acc-bar > span { display: block; height: 100%; border-radius: 999px; }
+.finger-acc-value { text-align: right; font-weight: 800; }
+
+.mistake-types {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.mistake-row {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.mistake-head { display: flex; justify-content: space-between; gap: 8px; font-size: 0.82rem; }
+.mistake-head span { color: var(--muted); font-weight: 700; }
+.mistake-tip { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+.session-tip { font-weight: 600; font-style: italic; }
 
 .trouble-keys {
   display: flex;
