@@ -456,17 +456,39 @@ function rawKeystrokeAccuracy() {
   return state.stats.total > 0 ? Math.round((state.stats.correct / state.stats.total) * 100) : 100;
 }
 
+// Industry-standard WPM: one "word" = 5 characters, not a literal word —
+// counting literal words (the old formula) made a home-row lesson full of
+// 2-3 letter words look unrealistically fast, and a full-sentence lesson
+// look unrealistically slow, at the exact same real typing speed, since
+// every item counted as "1 word" regardless of length. Timed from the
+// first keystroke of the session rather than the Start click, so
+// thinking/reading time before you begin doesn't drag your speed down —
+// this is how real typing-speed tests measure too. Clamped to a sane
+// human ceiling so a near-zero elapsed time right after the first
+// keystroke can't produce an absurd spike.
+function currentWpm() {
+  if (!state.stats.firstKeystrokeTime || state.stats.correct === 0) return 0;
+  const elapsedMinutes = (Date.now() - state.stats.firstKeystrokeTime) / 60000;
+  if (elapsedMinutes < 1 / 60) return 0; // under ~1 second elapsed — not measurable yet
+  return Math.min(200, Math.round((state.stats.correct / 5) / elapsedMinutes));
+}
+
 function finishSession() {
-  const minutes = (Date.now() - state.stats.startTime) / 60000;
-  const wpm = minutes > 0 ? Math.round(state.stats.wordsCompleted / minutes) : 0;
+  const wpm = currentWpm();
   const accuracy = wordAccuracy();
 
   // Recorded unconditionally, regardless of whether live stats are shown.
   recordLifetimeSession({ wpm, accuracy, rawAccuracy: rawKeystrokeAccuracy(), durationMs: Date.now() - state.stats.startTime, wordsCompleted: state.stats.wordsCompleted });
   if (!state.customLesson) saveSessionResult(state.levelId, state.lessonId, wpm, accuracy);
 
+  // rawAccuracy (keystroke-level precision) was already tracked for
+  // "future reference" but never actually shown anywhere — surfaced here
+  // as a secondary detail so a learner who wants the fuller picture gets
+  // it, without changing what's actually optimized for (word completion).
+  const rawAcc = rawKeystrokeAccuracy();
   document.getElementById('wordDisplay').innerHTML =
-    `<span class="session-message">Lesson complete! ${wpm} WPM, ${accuracy}% accuracy 🎉</span>`;
+    `<span class="session-message">Lesson complete! ${wpm} WPM, ${accuracy}% accuracy 🎉</span>` +
+    `<div class="session-detail">${rawAcc}% keystroke precision</div>`;
   document.getElementById('listenHint').hidden = true;
   highlightKey(undefined);
   state.active = false;
@@ -477,8 +499,7 @@ function finishSession() {
 
 function updateStatsUI() {
   const accuracy = wordAccuracy();
-  const minutes = (Date.now() - state.stats.startTime) / 60000;
-  const wpm = minutes > 0 ? Math.round(state.stats.wordsCompleted / minutes) : 0;
+  const wpm = currentWpm();
   // Stats are always computed here; only the DOM section's visibility is toggled by settings.showLiveStats.
   document.getElementById('accuracyStat').textContent = `${accuracy}%`;
   document.getElementById('wpmStat').textContent = `${wpm}`;
@@ -592,6 +613,7 @@ function handleKeydown(e) {
 
   const expectedChar = state.currentWord[state.expectedIndex];
   if (e.key === expectedChar) {
+    if (!state.stats.firstKeystrokeTime) state.stats.firstKeystrokeTime = Date.now();
     state.expectedIndex++;
     state.stats.total++;
     state.stats.correct++;

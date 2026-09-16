@@ -402,6 +402,13 @@ main .card:nth-of-type(5) { animation-delay: 0.18s; }
   .session-message { animation: none; }
 }
 
+.session-detail {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 /* ========================================================================
    Keyboard, keys, and the animated finger-position hands overlaid on it.
    This section is intentionally left as-is — geometry and colors here are
