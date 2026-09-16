@@ -17,8 +17,11 @@ const COMMON_WORDS = [
   'flag', 'glad', 'salad', 'flask', 'gash', 'lash', 'dash', 'sash', 'hall',
   'halls', 'ash', 'hash', 'gala', 'salsa', 'glass', 'lad', 'sag', 'gag', 'lag',
 
-  // Very common short words (2-4 letters)
-  'the', 'a', 'i', 'it', 'is', 'at', 'if', 'of', 'do', 'go', 'to', 'so',
+  // Very common short words (2-4 letters). Deliberately no single-letter
+  // "words" like "a"/"i" here — real words, but degenerate to actually
+  // practice (one keystroke), and nonsensical once drilled 3-4x in a row
+  // ("a a a a").
+  'the', 'it', 'is', 'at', 'if', 'of', 'do', 'go', 'to', 'so',
   'up', 'us', 'you', 'day', 'way', 'say', 'play', 'stay', 'may', 'lay',
   'pay', 'ray', 'gray', 'today', 'girl', 'world', 'trade', 'great',
   'quiet', 'little', 'study', 'story', 'light', 'right', 'tight',

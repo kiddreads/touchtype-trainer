@@ -100,6 +100,24 @@ function speak(text) {
   } catch (e) { /* speech is a bonus channel, not a requirement to keep practicing */ }
 }
 
+// A drilled line ("cat cat cat cat") is the same word repeated — see
+// repeatedLineFor(). Speaking the whole concatenated string at once
+// reads as nonsense ("cat cat cat cat" in one breath); it should
+// announce just "cat" each time a new repetition starts instead.
+function isDrilledRepeat(text) {
+  const parts = text.split(' ');
+  return parts.length > 1 && parts.every(p => p === parts[0]);
+}
+
+function currentSegmentText() {
+  return isDrilledRepeat(state.currentWord) ? baseWordOf(state.currentWord) : state.currentWord;
+}
+
+// Auto-fires on a new word/repetition, gated by the autoSpeak setting.
+function speakCurrentSegment() {
+  if (settings.autoSpeak) speak(currentSegmentText());
+}
+
 // ---------- Keyboard + finger-position hands ----------
 
 function buildKeyboard() {
@@ -389,7 +407,7 @@ function nextWord() {
   state.awaitingAdvance = false;
   document.getElementById('advanceHint').hidden = true;
   renderWord();
-  if (settings.autoSpeak) speak(state.currentWord);
+  speakCurrentSegment();
   highlightKey(state.currentWord[0]);
   updateStatsUI();
 }
@@ -646,6 +664,10 @@ function handleKeydown(e) {
     } else {
       renderWord();
       highlightKey(state.currentWord[state.expectedIndex]);
+      // A space just completed one repetition of a drilled word — announce
+      // it again for the next one, instead of only speaking it once at the
+      // very start of the whole line.
+      if (expectedChar === ' ' && isDrilledRepeat(state.currentWord)) speakCurrentSegment();
     }
   } else {
     // Only the first wrong press on a given letter counts — mashing the
@@ -773,7 +795,8 @@ function init() {
   });
   document.getElementById('pauseBtn').addEventListener('click', pauseLesson);
   document.getElementById('replayBtn').addEventListener('click', () => {
-    if (state.currentWord) speak(state.currentWord);
+    // Manual replay always speaks, regardless of the autoSpeak setting.
+    if (state.currentWord) speak(currentSegmentText());
   });
   document.getElementById('modeToggle').addEventListener('click', () => {
     state.mode = state.mode === 'see' ? 'listen' : 'see';
