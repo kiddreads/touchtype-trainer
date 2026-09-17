@@ -85,11 +85,23 @@ open-source web app.
   Read" mode (larger text, extra letter/line spacing).
 - **Progress dashboard** — lessons mastered per level, best WPM/accuracy,
   and lifetime totals, all local, nothing sent anywhere.
-- **AI Lesson Lab (localhost only)** — generate extra themed lessons on the
-  fly with an LLM. This only appears when the app is served by `server.js`
-  *and* an API key is configured; it's absent from the GitHub Pages build
-  and from a plain static file server, since neither can hold a secret key
-  or call an AI API.
+- **AI Lesson Lab** — generate extra themed lessons on the fly, naturally
+  mixing real words and real sentences (never all one or the other). No API
+  key, no account, needed in either place it runs:
+  - **`server.js` (localhost / self-hosted)** — ships with a real,
+    open-source, local model
+    ([Qwen2.5-1.5B-Instruct](https://huggingface.co/onnx-community/Qwen2.5-1.5B-Instruct),
+    via [`@huggingface/transformers`](https://github.com/huggingface/transformers.js)).
+    First generation after install downloads and caches it (~1 GB,
+    one-time); every generation after that runs fully offline, no network
+    call. Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` instead if you'd
+    rather use a bigger hosted model.
+  - **GitHub Pages / any static host** — has no backend to run a server-side
+    model on, so it runs a smaller open-source model
+    ([LaMini-Flan-T5-77M](https://huggingface.co/Xenova/LaMini-Flan-T5-77M))
+    directly in your browser instead, via the same transformers.js library
+    loaded from a CDN. First generation downloads it (~150 MB, cached by
+    the browser after that).
 
 ## Running it
 
@@ -99,18 +111,28 @@ open-source web app.
 python3 -m http.server 8000
 ```
 
-then open `http://localhost:8000`. Or just open `index.html` directly.
+then open `http://localhost:8000`. Or just open `index.html` directly — the
+AI Lesson Lab still works here too, via the in-browser model (see above).
 
-**With the AI Lesson Lab enabled:**
+**With the local-server AI Lesson Lab:**
+
+```sh
+npm install
+node server.js
+```
+
+then open `http://localhost:8935` (or `$PORT`). No key needed — the first
+lesson generation downloads the local model, then it's cached. To use a
+bigger hosted model instead:
 
 ```sh
 ANTHROPIC_API_KEY=sk-ant-... node server.js
 # or: OPENAI_API_KEY=sk-... node server.js
 ```
 
-then open `http://localhost:8935` (or `$PORT`). Without a key set, `server.js`
-still serves the full static app fine — the AI panel just checks
-`GET /api/health` on load and stays hidden/disabled until a key exists.
+Set `LOCAL_MODEL_ID` to swap the local model for a different size trade-off,
+and `LOCAL_MODEL_CACHE_DIR` to change where weights are cached (defaults to
+`./.cache/models/`, gitignored).
 
 ## How typing is checked
 

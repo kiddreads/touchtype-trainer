@@ -1030,42 +1030,71 @@ function handleKeydown(e) {
   updateStatsUI();
 }
 
-// ---------- AI Lesson Lab (localhost only) ----------
+// ---------- AI Lesson Lab ----------
+// Two backends, chosen automatically, both ship with the app — no API key
+// required either way:
+//   'server'       — server.js is running (localhost/self-hosted). Uses its
+//                     local open-source model by default (or Anthropic/
+//                     OpenAI if a key is set), all server-side.
+//   'browser-local' — no server (e.g. GitHub Pages). Runs a smaller
+//                     open-source model directly in this tab via
+//                     ai-local-browser.js / transformers.js.
 
 let aiAvailable = false;
+let aiSource = null; // 'server' | 'browser-local'
 
 async function checkAiAvailability() {
   try {
     const resp = await fetch('/api/health', { cache: 'no-store' });
-    if (!resp.ok) return;
+    if (!resp.ok) throw new Error('no server');
     const data = await resp.json();
     aiAvailable = true;
+    aiSource = 'server';
     document.getElementById('aiLab').hidden = false;
-    document.getElementById('aiLabStatus').textContent = data.aiAvailable
-      ? 'AI lesson generation is enabled on this server.'
-      : 'Server is running, but no ANTHROPIC_API_KEY / OPENAI_API_KEY is set — generation will fail until one is configured and the server restarted.';
-    document.getElementById('aiGenerateBtn').disabled = !data.aiAvailable;
+    document.getElementById('aiLabStatus').textContent = data.provider === 'local'
+      ? 'AI lesson generation is enabled — running the local open-source model this server ships with.'
+      : `AI lesson generation is enabled — using ${data.provider}.`;
+    document.getElementById('aiGenerateBtn').disabled = false;
   } catch (e) {
-    // No backend (GitHub Pages, or a plain static file server) — feature stays hidden.
+    // No backend reachable (GitHub Pages, or a plain static file server) —
+    // still enable the feature, but via the in-browser model instead.
+    aiAvailable = true;
+    aiSource = 'browser-local';
+    document.getElementById('aiLab').hidden = false;
+    document.getElementById('aiLabStatus').textContent =
+      'AI lesson generation runs right in your browser (no server, no account) — the first ' +
+      'generation downloads a small open-source model (~150 MB, cached after that).';
+    document.getElementById('aiGenerateBtn').disabled = false;
   }
 }
 
 async function generateAiLesson() {
   const theme = document.getElementById('aiTheme').value.trim() || 'general practice';
-  const sentence = document.getElementById('aiSentenceMode').checked;
   const btn = document.getElementById('aiGenerateBtn');
   const resultBox = document.getElementById('aiLabResult');
+  const statusEl = document.getElementById('aiLabStatus');
+  const statusBefore = statusEl.textContent;
   btn.disabled = true;
   btn.textContent = 'Generating…';
   resultBox.hidden = true;
   try {
-    const resp = await fetch('/api/generate-lesson', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ theme, count: 18, sentence })
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || `Request failed (${resp.status})`);
+    let data;
+    if (aiSource === 'server') {
+      const resp = await fetch('/api/generate-lesson', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme, count: 18 })
+      });
+      data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `Request failed (${resp.status})`);
+    } else {
+      const { generateLessonInBrowser } = await import('./ai-local-browser.js');
+      data = await generateLessonInBrowser({ theme, count: 18 }, (progress) => {
+        if (progress && progress.status === 'progress' && typeof progress.progress === 'number') {
+          statusEl.textContent = `Downloading local model… ${Math.round(progress.progress)}%`;
+        }
+      });
+    }
     state.lastAiLesson = { title: theme, words: data.words };
     document.getElementById('aiLabWords').textContent = data.words.join('  •  ');
     resultBox.hidden = false;
@@ -1073,6 +1102,7 @@ async function generateAiLesson() {
     document.getElementById('aiLabWords').textContent = `Error: ${err.message}`;
     resultBox.hidden = false;
   } finally {
+    statusEl.textContent = statusBefore;
     btn.disabled = !aiAvailable;
     btn.textContent = 'Generate lesson';
   }

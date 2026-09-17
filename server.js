@@ -1,13 +1,24 @@
 // Local dev server for TypeAloud. Serves the static app AND a small
 // /api/generate-lesson endpoint that calls an AI API to generate on-the-fly
 // curriculum content. This is deliberately NOT part of the static site —
-// GitHub Pages has no backend, so the AI Lesson Lab only appears when this
-// server is what's serving the page (it checks GET /api/health first).
+// GitHub Pages has no backend, so the server-backed AI Lesson Lab only
+// appears when this server is what's serving the page (it checks
+// GET /api/health first). The static site gets its own, smaller,
+// fully-in-browser model instead — see ai-local-browser.js.
 //
-// Usage:
-//   ANTHROPIC_API_KEY=sk-ant-... node server.js
-//   OPENAI_API_KEY=sk-... node server.js
-//   (no key set: static app still works, AI Lesson Lab just stays hidden)
+// Three tiers, picked in this order, no setup required for the first one
+// to just work:
+//   1. Local, open-source, in-process — the default. Runs a small ONNX
+//      model (see LOCAL_MODEL_ID below) via @huggingface/transformers,
+//      no external daemon, no account, no API key. This is what "ships
+//      with it" — the first request after startup downloads the model
+//      once (cached under .cache/models/) and every request after that
+//      runs fully offline.
+//   2. ANTHROPIC_API_KEY=sk-ant-... node server.js — bigger, hosted, paid.
+//   3. OPENAI_API_KEY=sk-...      node server.js — same, alternate provider.
+//
+// Set LOCAL_MODEL_ID to swap the local model; LOCAL_MODEL_CACHE_DIR to
+// change where weights are cached (defaults to ./.cache/models, gitignored).
 'use strict';
 
 const http = require('http');
@@ -18,6 +29,15 @@ const { URL } = require('url');
 
 const PORT = Number(process.env.PORT) || 8935;
 const ROOT = __dirname;
+
+// A real, small, open-source instruct model. 1.5B rather than the smallest
+// 0.5B size — noticeably more reliable at instruction-following (observed:
+// 0.5B occasionally mangled structured JSON output) while still running
+// fine on a laptop CPU with no GPU. 4-bit quantized (~1 GB) so the one-time
+// download stays reasonable. This is the "ships with it" default — no
+// account, no key. Swap via LOCAL_MODEL_ID for a different size trade-off.
+const LOCAL_MODEL_ID = process.env.LOCAL_MODEL_ID || 'onnx-community/Qwen2.5-1.5B-Instruct';
+const LOCAL_MODEL_DTYPE = process.env.LOCAL_MODEL_DTYPE || 'q4';
 
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
@@ -122,15 +142,89 @@ function callOpenAI(prompt) {
   });
 }
 
-function buildPrompt({ theme, allowedLetters, count, sentence }) {
+// Lazily loaded and cached across requests — loading the model is the slow
+// part (one-time download + weight init), running it per-request is fast.
+let localGeneratorPromise = null;
+function getLocalGenerator() {
+  if (!localGeneratorPromise) {
+    localGeneratorPromise = (async () => {
+      const { pipeline, env } = require('@huggingface/transformers');
+      env.cacheDir = process.env.LOCAL_MODEL_CACHE_DIR || path.join(ROOT, '.cache', 'models');
+      console.log(`Loading local model ${LOCAL_MODEL_ID} (first run downloads it, then it's cached)...`);
+      const generator = await pipeline('text-generation', LOCAL_MODEL_ID, { dtype: LOCAL_MODEL_DTYPE });
+      console.log('Local model ready.');
+      return generator;
+    })();
+  }
+  return localGeneratorPromise;
+}
+
+async function callLocal(prompt) {
+  const generator = await getLocalGenerator();
+  const output = await generator([{ role: 'user', content: prompt }], {
+    max_new_tokens: 800,
+    do_sample: false,
+    return_full_text: false
+  });
+  const turn = output[0].generated_text;
+  // With a chat template, generated_text is the message array; take the
+  // final (assistant) turn's content. Some model/pipeline combos instead
+  // return a plain string directly — handle both.
+  if (typeof turn === 'string') return turn;
+  const last = Array.isArray(turn) ? turn[turn.length - 1] : turn;
+  return (last && last.content) || '';
+}
+
+// Two separate, simple prompts (one per kind) instead of one prompt asking
+// for both mixed together. Small local models are reliable at "N words" or
+// "N sentences" alone but degrade badly when asked to interleave both
+// formats in one structured response (observed: a 0.5B model, asked to mix,
+// exploded a sentence into one array entry per word). The natural mix the
+// user sees comes from merging two clean generations, not from the model
+// juggling two formats in its head at once — same end result, far more
+// reliable, and it degrades gracefully (Anthropic/OpenAI handle the mixed
+// prompt fine, but this keeps one code path for every provider).
+function buildPrompt({ theme, allowedLetters, count, kind }) {
   const letterNote = allowedLetters && allowedLetters.length
-    ? ` Only use these letters (plus spaces) in every item: ${allowedLetters.join(' ')}. Do not use any other letter.`
+    ? ` Only use these letters (plus spaces${kind === 'sentences' ? ', and . ! ?' : ''}) in every item: ${allowedLetters.join(' ')}. Do not use any other letter.`
     : '';
-  const kind = sentence
+  const spec = kind === 'sentences'
     ? 'short, grammatically correct, real English sentences (each ending in . ! or ?)'
     : 'real, whole, common English words (no invented words, no gibberish, no abbreviations, no proper nouns)';
-  return `Generate exactly ${count} ${kind} for a touch-typing practice lesson themed "${theme}".` + letterNote +
+  return `Generate exactly ${count} ${spec} for a touch-typing practice lesson themed "${theme}".` + letterNote +
     ' Respond with ONLY a JSON array of strings, nothing else — no markdown fences, no explanation, no extra text.';
+}
+
+async function callProvider(provider, prompt) {
+  return provider === 'anthropic' ? callAnthropic(prompt)
+    : provider === 'openai' ? callOpenAI(prompt)
+    : callLocal(prompt);
+}
+
+function extractItems(text, allowedLetters) {
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error('AI response did not contain a JSON array');
+  let items = JSON.parse(match[0]);
+  items = items.filter((w) => typeof w === 'string' && w.trim().length > 0).map((w) => w.trim());
+  if (allowedLetters && allowedLetters.length) {
+    // Sentences carry their own punctuation ( . ! ? ' ) regardless of the
+    // letter restriction — that restriction is about the *letters* used,
+    // not whether an item is allowed to be a sentence at all.
+    const allowedSet = new Set(allowedLetters.map((c) => c.toLowerCase()).concat([' ', '.', '!', '?', "'"]));
+    items = items.filter((w) => [...w.toLowerCase()].every((ch) => !/[a-z]/.test(ch) || allowedSet.has(ch)));
+  }
+  return items;
+}
+
+// Fisher-Yates — a real shuffle, not Array.sort(() => Math.random() - 0.5)
+// (which is neither uniform nor guaranteed stable across engines).
+function shuffle(arr) {
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 async function handleGenerateLesson(req, res) {
@@ -140,27 +234,23 @@ async function handleGenerateLesson(req, res) {
   const allowedLetters = Array.isArray(body.allowedLetters)
     ? body.allowedLetters.filter((c) => typeof c === 'string' && c.length === 1)
     : null;
-  const sentence = !!body.sentence;
 
-  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
-  const hasOpenAI = !!process.env.OPENAI_API_KEY;
-  if (!hasAnthropic && !hasOpenAI) {
-    res.writeHead(501, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'No AI API key configured. Set ANTHROPIC_API_KEY or OPENAI_API_KEY in the environment running this server, then restart it.' }));
-    return;
-  }
+  const provider = activeProvider();
+  const wordCount = Math.max(1, Math.round(count * 0.6));
+  const sentenceCount = Math.max(1, count - wordCount);
 
   try {
-    const prompt = buildPrompt({ theme, allowedLetters, count, sentence });
-    const text = hasAnthropic ? await callAnthropic(prompt) : await callOpenAI(prompt);
-    const match = text.match(/\[[\s\S]*\]/);
-    if (!match) throw new Error('AI response did not contain a JSON array');
-    let words = JSON.parse(match[0]);
-    words = words.filter((w) => typeof w === 'string' && w.trim().length > 0).map((w) => w.trim());
-    if (allowedLetters && !sentence) {
-      const allowedSet = new Set(allowedLetters.map((c) => c.toLowerCase()).concat(' '));
-      words = words.filter((w) => [...w.toLowerCase()].every((ch) => !/[a-z]/.test(ch) || allowedSet.has(ch)));
-    }
+    const [wordText, sentenceText] = await Promise.all([
+      callProvider(provider, buildPrompt({ theme, allowedLetters, count: wordCount, kind: 'words' })),
+      callProvider(provider, buildPrompt({ theme, allowedLetters, count: sentenceCount, kind: 'sentences' }))
+    ]);
+    const wordItems = extractItems(wordText, allowedLetters);
+    // A sentence generation can legitimately come back empty after letter
+    // filtering (tight letter restrictions rarely survive in a sentence) —
+    // that's fine, the lesson just leans more word-heavy that time.
+    let sentenceItems = [];
+    try { sentenceItems = extractItems(sentenceText, allowedLetters); } catch (e) { /* words alone are enough */ }
+    const words = shuffle(wordItems.concat(sentenceItems));
     if (words.length === 0) throw new Error('AI returned no usable words after filtering for the allowed letters');
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ theme, words }));
@@ -170,11 +260,21 @@ async function handleGenerateLesson(req, res) {
   }
 }
 
+// Anthropic/OpenAI are bigger and hosted, so use one if a key is given;
+// otherwise fall back to the local model that ships with the app — no
+// setup, no key, works offline. aiAvailable is therefore always true once
+// this server is running; the "local" provider never needs configuring.
+function activeProvider() {
+  if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
+  if (process.env.OPENAI_API_KEY) return 'openai';
+  return 'local';
+}
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://localhost');
   if (u.pathname === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, aiAvailable: !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY) }));
+    res.end(JSON.stringify({ ok: true, aiAvailable: true, provider: activeProvider() }));
     return;
   }
   if (u.pathname === '/api/generate-lesson' && req.method === 'POST') {
@@ -185,7 +285,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  const aiOn = !!(process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY);
+  const provider = activeProvider();
   console.log(`TypeAloud running at http://localhost:${PORT}`);
-  console.log(`AI Lesson Lab: ${aiOn ? 'enabled' : 'disabled — set ANTHROPIC_API_KEY or OPENAI_API_KEY to enable'}`);
+  console.log(provider === 'local'
+    ? `AI Lesson Lab: enabled, local model (${LOCAL_MODEL_ID}) — first generation downloads it once, then runs offline.`
+    : `AI Lesson Lab: enabled, ${provider} (set ANTHROPIC_API_KEY/OPENAI_API_KEY to change which provider is used).`);
 });
