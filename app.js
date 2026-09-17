@@ -1083,13 +1083,13 @@ async function generateAiLesson() {
       const resp = await fetch('/api/generate-lesson', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme, count: 18 })
+        body: JSON.stringify({ theme, count: 14 })
       });
       data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `Request failed (${resp.status})`);
     } else {
       const { generateLessonInBrowser } = await import('./ai-local-browser.js');
-      data = await generateLessonInBrowser({ theme, count: 18 }, (progress) => {
+      data = await generateLessonInBrowser({ theme, count: 14 }, (progress) => {
         if (progress && progress.status === 'progress' && typeof progress.progress === 'number') {
           statusEl.textContent = `Downloading local model… ${Math.round(progress.progress)}%`;
         }

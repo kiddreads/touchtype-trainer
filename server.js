@@ -236,7 +236,11 @@ async function handleGenerateLesson(req, res) {
     : null;
 
   const provider = activeProvider();
-  const wordCount = Math.max(1, Math.round(count * 0.6));
+  // ~72/28 words/sentences — matches the real curriculum's average
+  // composition (0% sentences in early levels, up to 50% only in the
+  // dedicated "Full Sentences" level; this sits at a representative
+  // mid-point since an ad-hoc AI lesson isn't tied to one level).
+  const wordCount = Math.max(1, Math.round(count * 0.72));
   const sentenceCount = Math.max(1, count - wordCount);
 
   try {
