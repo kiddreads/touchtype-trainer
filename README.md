@@ -77,6 +77,30 @@ open-source web app.
   **Enter or Space** once a word is complete (Space is only accepted here,
   after the word is done — mid-word it's still a normal character, since
   many items contain real spaces).
+- **Speed test** — pick *Speed test* in the Lesson menu for a 30- or
+  60-second test, or a 25- or 50-word one, run the way typing-test sites
+  run them: random words drawn from everything taught up to the chosen
+  level, never the same word twice in a row. Punctuation, capitals and
+  numbers join in only once their keys have been taught (numbers from
+  level 4, punctuation and capitals from level 5). Speed tests measure;
+  they don't drill, requeue, or touch lesson mastery.
+- **Typing-test-standard speed stats** (`typing-engine.js`, conventions
+  as popularised by [Monkeytype](https://monkeytype.com), independently
+  implemented):
+  - **WPM** — 5 characters = 1 word, per minute of *typing* time. The
+    clock starts on your first keystroke and stops while a finished line
+    waits for Enter/Space, so reading a result doesn't lower your speed.
+  - **Raw WPM** — every keystroke, mistakes included; the gap to WPM is
+    the speed mistakes cost you. Shown live next to WPM.
+  - **Keystroke accuracy** — right presses out of all presses, every
+    wrong press counted (the headline accuracy stays first-try letter
+    accuracy).
+  - **Consistency** — how steady your raw speed was second to second
+    (coefficient of variation mapped onto 0–100%).
+  - **Word burst** — each word's own speed; the session result shows your
+    best.
+  All of these are saved to the session history alongside WPM and
+  accuracy.
 - **Stats are always recorded, display is optional** — WPM, accuracy, and
   full session history are saved to `localStorage` every time regardless of
   the "Live Stats" toggle; the toggle only hides the on-screen numbers while
@@ -148,7 +172,7 @@ so you always see the result before moving on.
 
 ```sh
 node build-curriculum.js   # rebuilds curriculum-data.js from wordbank.js
-node test/curriculum.test.js
+npm test                   # curriculum checks + typing-engine checks
 ```
 
 - Add words to `wordbank.js`, or edit the pools/sentences/templates in
@@ -157,8 +181,9 @@ node test/curriculum.test.js
 - The finger/key color map and physical layout live in `keyboard.js`
   (`FINGER_MAP`, `KEYBOARD_ROWS`) — edit these for a different layout (e.g.
   Dvorak) or region.
-- All practice/UI logic lives in `app.js`; the AI backend lives in
-  `server.js`. Neither requires a build step or dependencies.
+- All practice/UI logic lives in `app.js`; speed math and random word
+  generation live in `typing-engine.js` (pure functions, tested under
+  Node); the AI backend lives in `server.js`. Neither requires a build step or dependencies.
 
 ## License
 

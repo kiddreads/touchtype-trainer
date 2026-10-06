@@ -56,6 +56,11 @@
       <span class="stat-label">WPM</span>
       <b id="wpmStat">0</b>
     </div>
+    <div class="stat-chip" title="Raw WPM counts every keystroke, mistakes included. The gap to WPM is speed lost to mistakes.">
+      <span class="stat-icon">»</span>
+      <span class="stat-label">Raw</span>
+      <b id="rawWpmStat">0</b>
+    </div>
     <div class="stat-chip" title="Words typed with no mistakes, out of words finished">
       <span class="stat-icon">✨</span>
       <span class="stat-label">Perfect words</span>
@@ -63,7 +68,7 @@
     </div>
     <div class="stat-chip">
       <span class="stat-icon">📋</span>
-      <span class="stat-label">Lines left</span>
+      <span class="stat-label" id="queueLabel">Lines left</span>
       <b id="queueStat">0</b>
     </div>
   </section>
@@ -145,6 +150,7 @@
 
 <script src="keyboard.js"></script>
 <script src="curriculum-data.js"></script>
+<script src="typing-engine.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
