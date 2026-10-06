@@ -481,6 +481,15 @@ function populateLessonSelectForLevel(levelId) {
     opt.textContent = `Lesson ${i + 1}`;
     select.appendChild(opt);
   });
+  const tests = document.createElement('optgroup');
+  tests.label = 'Speed test (random words)';
+  SPEED_TESTS.forEach((t) => {
+    const opt = document.createElement('option');
+    opt.value = `test:${t.kind}:${t.n}`;
+    opt.textContent = t.label;
+    tests.appendChild(opt);
+  });
+  select.appendChild(tests);
 }
 
 function currentLevel() {
@@ -493,6 +502,7 @@ function startLesson(levelId, lessonId) {
   state.levelId = levelId;
   state.lessonId = lessonId;
   state.customLesson = null;
+  state.test = null;
   const level = currentLevel();
   const lesson = level.lessons.find(l => l.id === lessonId);
   beginSession(lesson.words, `Level ${level.id} · Lesson ${lessonId}: ${level.title}`, level.description);
@@ -502,6 +512,7 @@ function startCustomLesson(lessonMeta) {
   state.levelId = null;
   state.lessonId = null;
   state.customLesson = lessonMeta;
+  state.test = null;
   beginSession(lessonMeta.words, `AI Lesson: ${lessonMeta.title}`, 'Generated on this machine — not part of the core curriculum.');
 }
 
@@ -526,10 +537,67 @@ function baseWordOf(line) {
   return parts.length > 1 && parts.every(p => p === parts[0]) ? parts[0] : line;
 }
 
+// ---------- Speed test ----------
+// Random words from everything taught up to the chosen level, typed
+// against the clock (or for a set number of words), the way typing-test
+// sites run a test. Punctuation, capitals and numbers join in only once
+// their keys have been taught. No drilling, no requeueing, and it doesn't
+// touch lesson mastery: it measures, it doesn't teach.
+const SPEED_TESTS = [
+  { kind: 'time', n: 30, label: '30 seconds' },
+  { kind: 'time', n: 60, label: '60 seconds' },
+  { kind: 'words', n: 25, label: '25 words' },
+  { kind: 'words', n: 50, label: '50 words' }
+];
+const TEST_LINE_WORDS = 6;
+let testTimer = null;
+
+function startSpeedTest(levelId, kind, n) {
+  const level = LEVELS.find(l => l.id === levelId);
+  const { words, allowed } = speedTestSource(LEVELS, levelId);
+  const punctuation = ['.', '?', '!'].some((c) => allowed.has(c));
+  const numbers = [...'0123456789'].some((d) => allowed.has(d));
+  state.levelId = levelId;
+  state.lessonId = null;
+  state.customLesson = null;
+  state.test = {
+    kind, n,
+    stream: new WordStream({ words, allowed, punctuation, numbers, limit: kind === 'words' ? n : null })
+  };
+  const extras = [punctuation && 'punctuation', numbers && 'numbers'].filter(Boolean);
+  const label = kind === 'time' ? `${n}-second` : `${n}-word`;
+  beginSession([], `Speed test · ${label} · up to Level ${level.id}`,
+    `Random words from Levels 1-${level.id}${extras.length ? `, with ${extras.join(' and ')}` : ''}. Press Enter or Space at the end of each line; the clock stops while it waits.`);
+  clearInterval(testTimer);
+  if (kind === 'time') testTimer = setInterval(tickSpeedTest, 200);
+}
+
+function testTimeLeftMs() {
+  return Math.max(0, state.test.n * 1000 - state.stats.clock.elapsed(Date.now()));
+}
+
+function tickSpeedTest() {
+  if (!state.active || !state.test) { clearInterval(testTimer); return; }
+  if (testTimeLeftMs() === 0) finishSession();
+  else updateStatsUI();
+}
+
 function beginSession(words, titleText, descText) {
-  state.queue = shuffle(words).map(repeatedLineFor);
+  clearInterval(testTimer);
+  state.queue = state.test ? [] : shuffle(words).map(repeatedLineFor);
   state.wordMisses = {};
-  state.stats = { correct: 0, total: 0, missed: 0, startTime: Date.now(), wordsCompleted: 0, cleanWords: 0, itemsCompleted: 0, totalWords: words.length, mistakeTypes: {} };
+  state.stats = {
+    correct: 0, total: 0, missed: 0, startTime: Date.now(), wordsCompleted: 0, cleanWords: 0, itemsCompleted: 0,
+    totalWords: words.length, mistakeTypes: {},
+    // Speed-test style measures (see typing-engine.js).
+    wrongPresses: 0,          // every wrong press, not just the first per letter
+    typingStarted: false,
+    clock: new ActiveClock(), // typing time, minus waits at the end of each line
+    buckets: new SecondBuckets(),
+    bursts: [],               // WPM of each word on its own
+    segStartIndex: 0,
+    segStartMs: null
+  };
   state.active = true;
   document.getElementById('lessonTitle').textContent = titleText;
   document.getElementById('lessonDesc').textContent = descText;
@@ -540,6 +608,8 @@ function beginSession(words, titleText, descText) {
 }
 
 function pauseLesson() {
+  clearInterval(testTimer);
+  state.stats.clock.stop(Date.now());
   state.active = false;
   document.getElementById('startBtn').hidden = false;
   document.getElementById('pauseBtn').hidden = true;
@@ -548,12 +618,20 @@ function pauseLesson() {
 }
 
 function nextWord() {
+  if (state.test && state.queue.length === 0) {
+    const line = state.test.stream.nextLine(TEST_LINE_WORDS);
+    if (line) state.queue.push(line);
+  }
   if (state.queue.length === 0) {
     finishSession();
     return;
   }
+  // Typing time resumes as soon as the learner moves on to the next line.
+  if (state.stats.typingStarted) state.stats.clock.start(Date.now());
   state.currentWord = state.queue.shift();
   state.expectedIndex = 0;
+  state.stats.segStartIndex = 0;
+  state.stats.segStartMs = null;
   state.currentWordHadError = false;
   state.currentCharErrored = false;
   // Whether the word currently being typed (the space-delimited segment,
@@ -610,13 +688,19 @@ function completeWord() {
   const clean = !state.currentWordHadError;
 
   gradeCurrentWord(); // the last word on the line (earlier ones were graded at each space)
+  state.stats.clock.stop(Date.now()); // waiting for Enter isn't typing time
   state.stats.itemsCompleted++;
+  // A fixed-length speed test is over the moment its last word is typed.
+  if (state.test && state.test.stream.done && state.queue.length === 0) {
+    finishSession();
+    return;
+  }
 
   // Mastery/retry still require the WHOLE line clean (every word perfect)
   // — a stricter bar than the accuracy scores, and deliberately so; it's
   // what "mastered" should mean.
   let retiredAfterMisses = false;
-  if (!clean) {
+  if (!clean && !state.test) {
     state.wordMisses[word] = (state.wordMisses[word] || 0) + 1;
     // Cap it at 3 misses — endless re-queuing of the same stuck word/sentence
     // is discouraging, not helpful. After the 3rd miss it moves on instead;
@@ -628,7 +712,7 @@ function completeWord() {
       retiredAfterMisses = true;
     }
   }
-  if (!state.customLesson) recordWordResult(baseWordOf(word), clean);
+  if (!state.customLesson && !state.test) recordWordResult(baseWordOf(word), clean);
   // Wait for the learner to press Enter instead of auto-advancing — gives
   // them a moment to see the result rather than getting swept into the
   // next word/sentence. Space isn't used for this since many items
@@ -697,9 +781,24 @@ function gradeCurrentWord() {
   state.stats.wordsCompleted++;
   if (!state.segmentHadError) state.stats.cleanWords++;
   state.segmentHadError = false;
+  recordBurst();
 }
+// Burst: one word's own speed, from its first keystroke to the space (or
+// line end) that finishes it, the space included as typing-test sites do.
+function recordBurst() {
+  const st = state.stats;
+  const elapsed = st.clock.elapsed(Date.now());
+  if (st.segStartMs !== null && elapsed > st.segStartMs) {
+    st.bursts.push(Math.round(calculateWpm(state.expectedIndex - st.segStartIndex, elapsed - st.segStartMs)));
+  }
+  st.segStartIndex = state.expectedIndex;
+  st.segStartMs = null;
+}
+// Keystroke accuracy: right presses out of every press, each wrong press
+// counted (the first-try score counts a mashed letter once). Shown in the
+// end-of-session details for comparison with typing-test sites.
 function rawKeystrokeAccuracy() {
-  return state.stats.total > 0 ? Math.round((state.stats.correct / state.stats.total) * 100) : 100;
+  return keystrokeAccuracy(state.stats.correct, state.stats.wrongPresses);
 }
 function topSessionMistake() {
   const entries = Object.entries(state.stats.mistakeTypes);
@@ -712,34 +811,59 @@ function topSessionMistake() {
 // counting literal words (the old formula) made a home-row lesson full of
 // 2-3 letter words look unrealistically fast, and a full-sentence lesson
 // look unrealistically slow, at the exact same real typing speed, since
-// every item counted as "1 word" regardless of length. Timed from the
-// first keystroke of the session rather than the Start click, so
-// thinking/reading time before you begin doesn't drag your speed down —
-// this is how real typing-speed tests measure too. Clamped to a sane
-// human ceiling so a near-zero elapsed time right after the first
-// keystroke can't produce an absurd spike.
+// every item counted as "1 word" regardless of length. Timed on the
+// active clock: it starts at the first keystroke rather than the Start
+// click, and stops while a finished line waits for Enter/Space, so
+// reading/thinking time and the pause to see a result don't drag your
+// speed down — real typing tests stop at the last keystroke too. Clamped
+// to a sane human ceiling so a near-zero elapsed time right after the
+// first keystroke can't produce an absurd spike.
+function wpmFor(chars) {
+  const elapsed = state.stats.clock.elapsed(Date.now());
+  if (chars === 0 || elapsed < 1000) return 0; // under ~1 second — not measurable yet
+  return Math.min(200, Math.round(calculateWpm(chars, elapsed)));
+}
 function currentWpm() {
-  if (!state.stats.firstKeystrokeTime || state.stats.correct === 0) return 0;
-  const elapsedMinutes = (Date.now() - state.stats.firstKeystrokeTime) / 60000;
-  if (elapsedMinutes < 1 / 60) return 0; // under ~1 second elapsed — not measurable yet
-  return Math.min(200, Math.round((state.stats.correct / 5) / elapsedMinutes));
+  return wpmFor(state.stats.correct);
+}
+// Raw WPM: every keystroke, wrong presses included. The gap between raw
+// and WPM is the speed lost to mistakes.
+function currentRawWpm() {
+  return wpmFor(state.stats.correct + state.stats.wrongPresses);
 }
 
 function finishSession() {
+  clearInterval(testTimer);
+  const st = state.stats;
+  const now = Date.now();
+  st.clock.stop(now);
+  // A timed test is scored over exactly its length; the tick that ends it
+  // can land a few ms past the limit.
+  if (state.test && state.test.kind === 'time') st.clock.accumulatedMs = Math.min(st.clock.accumulatedMs, state.test.n * 1000);
   const wpm = currentWpm();
+  const rawWpm = currentRawWpm();
   const accuracy = sessionAccuracy();
+  const rawAccuracy = rawKeystrokeAccuracy();
+  const steadiness = consistency(st.buckets.rawWpmPerSecond(st.clock.elapsed(now)));
+  const bestBurst = st.bursts.length ? Math.min(250, Math.max(...st.bursts)) : null;
 
   // Recorded unconditionally, regardless of whether live stats are shown.
-  recordLifetimeSession({ wpm, accuracy, rawAccuracy: rawKeystrokeAccuracy(), durationMs: Date.now() - state.stats.startTime, wordsCompleted: state.stats.wordsCompleted });
-  if (!state.customLesson) saveSessionResult(state.levelId, state.lessonId, wpm, accuracy);
+  recordLifetimeSession({ wpm, rawWpm, accuracy, rawAccuracy, consistency: steadiness, bestBurst, durationMs: now - st.startTime, typingMs: Math.round(st.clock.elapsed(now)), wordsCompleted: st.wordsCompleted });
+  if (!state.customLesson && !state.test) saveSessionResult(state.levelId, state.lessonId, wpm, accuracy);
 
   const top = topSessionMistake();
   const lettersN = lettersAttempted();
-  const details = [`${lettersN - state.stats.missed}/${lettersN} letters right first try`, `${state.stats.cleanWords}/${state.stats.wordsCompleted} words perfect`];
+  const details = [`${lettersN - st.missed}/${lettersN} letters right first try`, `${st.cleanWords}/${st.wordsCompleted} words perfect`];
   if (top) details.push(`most common slip: ${MISTAKE_INFO[top.type].label.toLowerCase()} (${top.count})`);
+  const speedDetails = [`raw ${rawWpm} WPM`, `keystroke accuracy ${rawAccuracy}%`];
+  if (steadiness !== null) speedDetails.push(`consistency ${steadiness}%`);
+  if (bestBurst !== null) speedDetails.push(`best word burst ${bestBurst} WPM`);
+  const headline = state.test ? 'Speed test complete!' : 'Lesson complete!';
+  document.getElementById('advanceHint').hidden = true;
   document.getElementById('wordDisplay').innerHTML =
-    `<span class="session-message">Lesson complete! ${wpm} WPM, ${accuracy}% accuracy 🎉</span>` +
+    `<span class="session-message">${headline} ${wpm} WPM, ${accuracy}% accuracy 🎉</span>` +
     `<div class="session-detail">${details.join(' · ')}</div>` +
+    `<div class="session-detail" title="Raw counts every keystroke, mistakes included. Keystroke accuracy counts every wrong press. Consistency is how steady your speed was second to second.">${speedDetails.join(' · ')}</div>` +
     (top ? `<div class="session-detail session-tip">Tip: ${MISTAKE_INFO[top.type].tip}</div>` : '');
   document.getElementById('listenHint').hidden = true;
   highlightKey(undefined);
@@ -756,12 +880,25 @@ function updateStatsUI() {
   document.getElementById('accuracyStat').textContent = `${accuracy}%`;
   document.getElementById('accuracyStat').parentElement.title = accuracyExplanation();
   document.getElementById('wpmStat').textContent = `${wpm}`;
-  document.getElementById('queueStat').textContent = `${state.queue.length + 1}`;
+  document.getElementById('rawWpmStat').textContent = `${currentRawWpm()}`;
   document.getElementById('perfectWordsStat').textContent = `${state.stats.cleanWords}/${state.stats.wordsCompleted}`;
-  if (state.stats.totalWords) {
-    const pct = Math.min(100, Math.round((state.stats.itemsCompleted / state.stats.totalWords) * 100));
-    document.getElementById('progressFill').style.width = `${pct}%`;
+  const queueLabel = document.getElementById('queueLabel');
+  let pct = null;
+  if (state.test && state.test.kind === 'time') {
+    const left = testTimeLeftMs();
+    queueLabel.textContent = 'Time left';
+    document.getElementById('queueStat').textContent = `${Math.ceil(left / 1000)}s`;
+    pct = 100 - (left / (state.test.n * 1000)) * 100;
+  } else if (state.test) {
+    queueLabel.textContent = 'Words left';
+    document.getElementById('queueStat').textContent = `${Math.max(0, state.test.n - state.stats.wordsCompleted)}`;
+    pct = (state.stats.wordsCompleted / state.test.n) * 100;
+  } else {
+    queueLabel.textContent = 'Lines left';
+    document.getElementById('queueStat').textContent = `${state.queue.length + 1}`;
+    if (state.stats.totalWords) pct = (state.stats.itemsCompleted / state.stats.totalWords) * 100;
   }
+  if (pct !== null) document.getElementById('progressFill').style.width = `${Math.min(100, Math.round(pct))}%`;
 }
 
 // ---------- Progress / mastery / lifetime-stats persistence ----------
@@ -790,7 +927,7 @@ function saveSessionResult(levelId, lessonId, wpm, accuracy) {
   saveProgress(progress);
 }
 
-function recordLifetimeSession({ wpm, accuracy, rawAccuracy, durationMs, wordsCompleted }) {
+function recordLifetimeSession({ wpm, rawWpm, accuracy, rawAccuracy, consistency, bestBurst, durationMs, typingMs, wordsCompleted }) {
   const s = loadLifetimeStats();
   s.totalSessions++;
   s.totalKeystrokes += state.stats.total;
@@ -799,9 +936,12 @@ function recordLifetimeSession({ wpm, accuracy, rawAccuracy, durationMs, wordsCo
   s.totalTimeMs += durationMs;
   s.bestWpmEver = Math.max(s.bestWpmEver, wpm);
   s.bestAccuracyEver = Math.max(s.bestAccuracyEver, accuracy);
-  // rawAccuracy (raw keystroke ratio) is kept for detailed/future reference
-  // only — it is never what's shown live, since it's unfairly punishing.
-  s.history.push({ date: Date.now(), levelId: state.levelId, lessonId: state.lessonId, wpm, accuracy, rawAccuracy, wordsCompleted, durationMs });
+  // rawAccuracy is keystroke accuracy (every wrong press counted). It's only
+  // ever shown in the end-of-session details, never as the headline score,
+  // since it's unfairly punishing for a learner. Entries saved before the
+  // speed-test engine counted only the first wrong press per letter here.
+  const test = state.test ? `${state.test.kind}:${state.test.n}` : null;
+  s.history.push({ date: Date.now(), levelId: state.levelId, lessonId: state.lessonId, test, wpm, rawWpm, accuracy, rawAccuracy, consistency, bestBurst, wordsCompleted, durationMs, typingMs });
   if (s.history.length > 200) s.history = s.history.slice(-200);
   saveLifetimeStats(s);
 }
@@ -931,6 +1071,8 @@ const REFLEX_ADVANCE_MS = 300;  // a second reflex Space right after advancing
 
 function handleKeydown(e) {
   if (!state.active || !state.currentWord) return;
+  // A timed test ends at its limit even if the 200ms tick hasn't fired yet.
+  if (state.test && state.test.kind === 'time' && testTimeLeftMs() === 0) { e.preventDefault(); finishSession(); return; }
   const active = document.activeElement;
   if (active && (active.tagName === 'SELECT' || active.tagName === 'INPUT' && active.id !== 'typeCapture')) return;
   updateCapsLockWarning(e);
@@ -981,8 +1123,16 @@ function handleKeydown(e) {
   state.lastKey = e.key;
   state.lastKeyTime = now;
 
+  // Every press that got this far is a real attempt: it starts the clock,
+  // counts toward raw speed, and opens the current word's burst timing.
+  const st = state.stats;
+  st.typingStarted = true;
+  st.clock.start(now);
+  const elapsed = st.clock.elapsed(now);
+  st.buckets.add(elapsed);
+  if (st.segStartMs === null) st.segStartMs = elapsed;
+
   if (e.key === expectedChar) {
-    if (!state.stats.firstKeystrokeTime) state.stats.firstKeystrokeTime = Date.now();
     // A letter already recorded as a miss must not ALSO be recorded as a
     // success when it's finally typed. It used to be both, so a key you
     // missed every single time read as 50% in trouble keys / per-finger
@@ -1015,6 +1165,7 @@ function handleKeydown(e) {
     // was supposed to be pressed), not e.key (whatever was actually
     // mashed) — "trouble keys" means keys you fail to hit when they're
     // the target, not keys you accidentally hit instead.
+    state.stats.wrongPresses++;
     if (!state.currentCharErrored) {
       state.stats.total++;
       state.stats.missed++;
@@ -1167,8 +1318,13 @@ function init() {
   });
   document.getElementById('startBtn').addEventListener('click', () => {
     const levelId = Number(document.getElementById('levelSelect').value) || LEVELS[0].id;
-    const lessonId = Number(document.getElementById('lessonSelect').value) || 1;
-    startLesson(levelId, lessonId);
+    const choice = document.getElementById('lessonSelect').value;
+    if (choice.startsWith('test:')) {
+      const [, kind, n] = choice.split(':');
+      startSpeedTest(levelId, kind, Number(n));
+      return;
+    }
+    startLesson(levelId, Number(choice) || 1);
   });
   document.getElementById('pauseBtn').addEventListener('click', pauseLesson);
   document.getElementById('replayBtn').addEventListener('click', () => {
